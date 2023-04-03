@@ -1,12 +1,5 @@
-
-import sys
-sys.path.insert(1, "../engine/")
-
-from lib import *
-from ensemble import *
-from ensemble import _R, _Q, _D, _Z, _N, _empty
-from objet import *
-
+from calc_engine import *
+from calc_engine import _R, _Q, _D, _Z, _N, _empty
 
 assert _R.inclus_dans(_R)
 assert _Q.inclus_dans(_R)
