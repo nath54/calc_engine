@@ -2,6 +2,7 @@
 
 from typing import Optional
 from mpmath import mp
+from math import *
 
 """ Preparing some variables for later """
 
@@ -50,13 +51,99 @@ class Objet():
         
 """ """
 
-
 class Reel(Objet):
     def __init__(self, valeur) -> None:
         super().__init__(nom=None)
         #
-        self.valeur = mp(valeur)
+        self.valeur = valeur
     
+    def __repr__(self) -> str:
+        return str(self.valeur)
+    
+    def __add__(self, r) -> 'Reel':
+        if type(r) == Reel:
+            return Reel(self.valeur+r.valeur)
+        elif type(r) == float or type(r) == int:
+            return Reel(self.valeur+r)
+        else:
+            raise UserWarning("Erreur de typage !", r, type(r))
+
+    def __mul__(self, r) -> 'Reel':
+        if type(r) == Reel:
+            return Reel(self.valeur*r.valeur)
+        elif type(r) == float or type(r) == int:
+            return Reel(self.valeur*r)
+        else:
+            raise UserWarning("Erreur de typage !", r, type(r))
+    
+    def __sub__(self, r) -> 'Reel':
+        if type(r) == Reel:
+            return Reel(self.valeur-r.valeur)
+        elif type(r) == float or type(r) == int:
+            return Reel(self.valeur-r)
+        else:
+            raise UserWarning("Erreur de typage !", r, type(r))
+    
+    def __pow__(self, r) -> 'Reel':
+        if type(r) == Reel:
+            return Reel(self.valeur**r.valeur)
+        elif type(r) == float or type(r) == int:
+            return Reel(self.valeur**r)
+        else:
+            raise UserWarning("Erreur de typage !", r, type(r))
+    
+    def __eq__(self, r) -> bool:
+        if type(r) == Reel:
+            return self.valeur == r.valeur
+        elif type(r) == float or type(r) == int:
+            return self.valeur == r
+        else:
+            raise UserWarning("Erreur de typage !", r, type(r))
+
+    def __gt__(self, r) -> bool:
+        if type(r) == Reel:
+            return self.valeur > r.valeur
+        elif type(r) == float or type(r) == int:
+            return self.valeur > r
+        else:
+            raise UserWarning("Erreur de typage !", r, type(r))
+    
+    def __lt__(self, r) -> bool:
+        if type(r) == Reel:
+            return self.valeur < r.valeur
+        elif type(r) == float or type(r) == int:
+            return self.valeur < r
+        else:
+            raise UserWarning("Erreur de typage !", r, type(r))
+    
+    def __geq__(self, r) -> bool:
+        if type(r) == Reel:
+            return self.valeur >= r.valeur
+        elif type(r) == float or type(r) == int:
+            return self.valeur >= r
+        else:
+            raise UserWarning("Erreur de typage !", r, type(r))
+    
+    def __leq__(self, r) -> bool:
+        if type(r) == Reel:
+            return self.valeur <= r.valeur
+        elif type(r) == float or type(r) == int:
+            return self.valeur <= r
+        else:
+            raise UserWarning("Erreur de typage !", r, type(r))
+    
+    def __neg__(self) -> 'Reel':
+        return Reel(-self.valeur)
+    
+    def __floor__(self) -> 'Reel':
+        return Reel(floor(self.valeur))
+    
+    def __ceil__(self) -> 'Reel':
+        return Reel(ceil(self.valeur))
+
+    def __round__(self) -> 'Reel':
+        return Reel(round(self.valeur))
+
     def appartient_a(self, ensemble: 'Ensemble') -> bool:
         return _R.inclus_dans(ensemble)
     
@@ -69,13 +156,21 @@ class Reel(Objet):
 
 class Variable(Objet):
     def __init__(self, nom: str, ensemble_parent: 'Ensemble'=None) -> None:
-        super.__init__(nom)
+        super().__init__(nom=nom)
         #
         self.nom: str = nom
         self.ensemble_parent: Ensemble = ensemble_parent
 
+    def __hash__(self) -> int:
+        return self.nom.__hash__()
+
     def __repr__(self) -> str:
         return self.nom
+    
+    def __eq__(self, v) -> bool:
+        if v is Variable:
+            return v.nom == self.nom
+        return False
 
     def depends_of_var(self, var: 'Variable') -> bool:
         if var == self:
@@ -92,7 +187,7 @@ class Variable(Objet):
 
 class Function(Objet):
     def __init__(self, nom: str, variables: list[Variable]) -> None:
-        super.__init__(nom)
+        super().__init__(nom)
         #
         self.variables: list[Variable] = variables
     
@@ -146,8 +241,8 @@ class Derive(Function):
     
 
 class Somme(Objet):
-    def __init__(self, objs: list[Objet]):
-        super.__init__(nom=None)
+    def __init__(self, objs: list[Objet]) -> None:
+        super().__init__(nom=None)
         #
         self.objs: list[Objet] = objs
 
@@ -162,11 +257,62 @@ class Somme(Objet):
             return Somme([o.derive(var) for o in self.objs if o.depends_of_var(var)])
         else:
             return Reel(0)
+    
+    def simplifie(self) -> Objet:
+        # On rassemble les sommes entre elles
+        for o in self.objs:
+            if o is Somme:
+                o = o.simplifie()
+                self.objs.remove(o)
+                self.objs.extend(o.objs)
+        # pré-tri
+        sum_rls = Reel(0)
+        sobjs = {}
+        #
+        for o in self.objs:
+            if type(o) == Reel:
+                sum_rls += o
+            elif o is Produit:
+                o = o.simplifie()
+                #
+                if len(o.objs) == 2 and type(o.objs[0]) == Reel:
+                    if o in sobjs:
+                        sobjs[o] += o.objs[0].valeur
+                    else:
+                        sobjs[o] = o.objs[0].valeur
+            else:
+                if o in sobjs:
+                    sobjs[o] += 1
+                else:
+                    sobjs[o] = 1
+        #
+        new_objs = []
+        #
+        for ko in sobjs.keys():
+            if sobjs[ko] == 1:
+                new_objs.append(ko)
+            else:
+                new_objs.append(Produit([Reel(sobjs[ko]), ko]))
+        #
+        if sum_rls != 0:
+            new_objs.append(sum_rls)
+        #
+        print("debug : sobjs : ", sobjs)
+        print("debug : new_objs : ", new_objs)
+        #
+        if len(new_objs)==0:
+            return Reel(0)
+        elif len(new_objs) == 1:
+            return new_objs[0]
+        else:
+            return Somme(new_objs)
+        
+
 
 
 class Soustraction(Objet):
     def __init__(self, o1: Objet, o2: Objet):
-        super.__init__(nom=None)
+        super().__init__(nom=None)
         #
         self.o1: Objet = o1
         self.o2: Objet = o2
@@ -186,7 +332,7 @@ class Soustraction(Objet):
 
 class Produit(Objet):
     def __init__(self, objs: list[Objet]):
-        super.__init__(nom=None)
+        super().__init__(nom=None)
         #
         self.objs: list[Objet] = objs
 
@@ -213,11 +359,56 @@ class Produit(Objet):
             derivees.append(Produit([o.derive(var), Produit(dependants[:i]+dependants[i+1:])]))
         #
         return Produit([Produit(autres), Somme(derivees)])
-        
+    
+    def simplifie(self) -> Objet:
+        # On rassemble les produits entre eux
+        for o in self.objs:
+            if o is Produit:
+                o = o.simplifie()
+                self.objs.remove(o)
+                self.objs.extend(o.objs)
+        # pré-tri
+        prod_rls = Reel(1)
+        sobjs = {}
+        #
+        for o in self.objs:
+            if type(o) == Reel:
+                prod_rls *= o
+            elif o is Puissance:
+                if o.obj in sobjs:
+                    sobjs[o.obj].append(o.exposant)
+                else:
+                    sobjs[o.obj] = [o.exposant]
+            else:
+                if o in sobjs:
+                    sobjs[o].append(Reel(1))
+                else:
+                    sobjs[o] = [Reel(1)]
+        #
+        new_objs = []
+        #
+        if prod_rls == 0:
+            return Reel(0)
+        elif prod_rls!=1:
+            new_objs.append(prod_rls)
+        #
+        new_objs = []
+        for ko in sobjs.keys():
+            if sobjs[ko] == 1:
+                new_objs.append(ko)
+            else:
+                new_objs.append(Puissance(ko, Somme(sobjs[ko]).simplifie()))
+        #
+        if len(new_objs) == 0:
+            return Reel(1)
+        elif len(new_objs) == 1:
+            return new_objs[0]
+        else:
+            return Produit(new_objs)
 
 class Frac(Objet):
     def __init__(self, numerateur: Objet, denominateur: Objet):
-        super.__init__(nom=None)
+        super().__init__(nom=None)
         #
         self.numerateur: Objet = numerateur
         self.denominateur: Objet = denominateur
@@ -251,7 +442,7 @@ class Ln(Function):
 
 class Puissance(Objet):
     def __init__(self, obj: Objet, exposant: Objet):
-        super.__init__(nom=None)
+        super().__init__(nom=None)
         #
         self.obj: Objet = obj
         self.exposant: Objet = exposant
@@ -272,6 +463,18 @@ class Puissance(Objet):
             if not self.exposant.depends_of_var(var):
                 return Produit([self.exposant, self.obj.derive(var), Puissance(self.obj, Soustraction(self.exposant, Reel(1)))])
 
+    def simplifie(self) -> Objet:
+        obj = self.obj.simplifie()
+        exposant = self.exposant.simplifie()
+        #
+        if obj == Reel(1):
+            return Reel(1)
+        elif exposant == Reel(0):
+            return Reel(1)
+        elif exposant == Reel(1):
+            return obj
+        else:
+            return Puissance(obj, exposant)
 
 """ """
 
@@ -380,5 +583,5 @@ _D = SousEnsemble("_D", _Q)
 _Z = SousEnsemble("_Z", _D)
 _N = SousEnsemble("_N", _Z)
 
-_empty = EnsembleVide("_empty")
+_empty = EnsembleVide()
 
