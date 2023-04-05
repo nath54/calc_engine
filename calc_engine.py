@@ -31,10 +31,17 @@ def is_iterable(v) -> bool:
 """ Elements atomiques """
 
 
+class Hypothese():
+    def __init__(self):
+        pass
+
+
+
 class Objet():
-    def __init__(self, nom: str, ensemble_parent: 'Ensemble'=None) -> None:
+    def __init__(self, nom: str, ensemble_parent: 'Ensemble'=None, hypotheses: list[Hypothese] = []) -> None:
         self.ensemble_parent: Ensemble = ensemble_parent
         self.nom: str = nom
+        self.hypotheses: list[Hypothese] = hypotheses
 
     def __repr__(self) -> str:
         return self.nom
@@ -44,10 +51,15 @@ class Objet():
             return False
         else:
             return self.ensemble_parent.inclus_dans(ensemble)
-        
-    
+
     def depends_of_var(self, var: 'Variable') -> bool:
         return False
+    
+    def derive(self, var: 'Variable') -> 'Objet':
+        return Reel(0)
+    
+    def simplifie(self) -> 'Objet':
+        return self
         
 """ """
 
@@ -98,7 +110,7 @@ class Reel(Objet):
         elif type(r) == float or type(r) == int:
             return self.valeur == r
         else:
-            raise UserWarning("Erreur de typage !", r, type(r))
+            return False
 
     def __gt__(self, r) -> bool:
         if type(r) == Reel:
@@ -239,6 +251,30 @@ class Derive(Function):
         else:
             return Derive(None, self, var)
     
+class Oppose(Objet):
+    def __init__(self, o: Objet) -> None:
+        super().__init__(nom=None)
+        #
+        self.o = o
+    
+    def __repr__(self) -> str:
+        return "-"+self.o.__repr__()
+    
+    def depends_of_var(self, var: Variable) -> bool:
+        return self.o.depends_of_var()
+    
+    def derive(self, var: Variable) -> Objet:
+        return Oppose(self.o.derive(var))
+
+    def simplifie(self) -> Objet:
+        obj = self.o.simplifie()
+        if type(obj) == Oppose:
+            return (obj.o).simplifie()
+        elif obj == Reel(0):
+            return Reel(0)
+        else:
+            return Oppose(obj)
+        
 
 class Somme(Objet):
     def __init__(self, objs: list[Objet]) -> None:
@@ -280,6 +316,11 @@ class Somme(Objet):
                         sobjs[o] += o.objs[0].valeur
                     else:
                         sobjs[o] = o.objs[0].valeur
+            elif o is Oppose:
+                if o in sobjs:
+                    sobjs[o] -= 1
+                else:
+                    sobjs[o] = -1
             else:
                 if o in sobjs:
                     sobjs[o] += 1
@@ -289,16 +330,17 @@ class Somme(Objet):
         new_objs = []
         #
         for ko in sobjs.keys():
-            if sobjs[ko] == 1:
+            if sobjs[ko] == 0:
+                continue
+            elif sobjs[ko] == 1:
                 new_objs.append(ko)
+            elif sobjs[ko] < 0:
+                new_objs.append(Oppose(Produit([Reel(-sobjs[ko]), ko])))
             else:
                 new_objs.append(Produit([Reel(sobjs[ko]), ko]))
         #
         if sum_rls != 0:
             new_objs.append(sum_rls)
-        #
-        print("debug : sobjs : ", sobjs)
-        print("debug : new_objs : ", new_objs)
         #
         if len(new_objs)==0:
             return Reel(0)
@@ -306,9 +348,6 @@ class Somme(Objet):
             return new_objs[0]
         else:
             return Somme(new_objs)
-        
-
-
 
 class Soustraction(Objet):
     def __init__(self, o1: Objet, o2: Objet):
@@ -361,17 +400,21 @@ class Produit(Objet):
         return Produit([Produit(autres), Somme(derivees)])
     
     def simplifie(self) -> Objet:
-        # On rassemble les produits entre eux
+        # On rassemble les produits entre eux, on simplifie les objets, et on teste le produit nul
+        objs = []
         for o in self.objs:
+            o = o.simplifie()
             if o is Produit:
-                o = o.simplifie()
-                self.objs.remove(o)
-                self.objs.extend(o.objs)
+                objs += o.objs
+            elif o == Reel(0):
+                return Reel(0)
+            else:
+                objs.append(o)
         # pré-tri
         prod_rls = Reel(1)
         sobjs = {}
         #
-        for o in self.objs:
+        for o in objs:
             if type(o) == Reel:
                 prod_rls *= o
             elif o is Puissance:
@@ -469,9 +512,9 @@ class Puissance(Objet):
         #
         if obj == Reel(1):
             return Reel(1)
-        elif exposant == Reel(0):
+        elif type(exposant) == Reel and exposant.valeur == 0:
             return Reel(1)
-        elif exposant == Reel(1):
+        elif type(exposant) == Reel and exposant.valeur == 1:
             return obj
         else:
             return Puissance(obj, exposant)
@@ -548,22 +591,100 @@ class Polynome(Objet):
 
 
 class Matrice(Objet):
-    def __init__(self, nb_lignes: int, nb_colonnes: int, coefs:list[list[Objet]] = None):
+    def __init__(self, nb_lignes: int, nb_colonnes: int, coefs:list[list[Objet]] = None) -> None:
+        assert nb_lignes >= 1 and nb_colonnes >= 1
         #
         super().__init__(nom=None)
         #
-        self.nb_lignes = nb_lignes
-        self.nb_colonnes = nb_colonnes
+        self.nb_lignes: int = nb_lignes
+        self.nb_colonnes: int = nb_colonnes
         #
-        self.coefs = []
+        self.coefs: list[list[Objet]] = []
         for i in range(nb_lignes):
             self.coefs.append([])
             for j in range(nb_colonnes):
                 if coefs != None and len(coefs) >= i and len(coefs[i]) >= j:
-                    self.coefs.append(coefs[i][j])
+                    self.coefs[i].append(coefs[i][j])
                 else:
-                    self.coefs.append(Reel(0))
+                    self.coefs[i].append(Reel(0))
+    
+    def aux_repr_colonne(self, i: int) -> str:
+            ctxts: list[str] = []
+            #
+            if self.nb_colonnes <= 16:
+                for j in range(self.nb_colonnes):
+                    ctxts.append(self.coefs[i][j].__repr__())
+            else:
+                for j in range(0, 8):
+                    ctxts.append(self.coefs[i][j].__repr__())
+                #
+                ctxts.append("...")
+                #
+                for j in range(0, -9, -1):
+                    ctxts.append(self.coefs[i][j].__repr__())
+            #
+            return " ".join(ctxts)
+
+    def __repr__(self) -> str:
+        ltxts: list[str] = []
+        if self.nb_lignes <= 16:
+            for i in range(self.nb_lignes):
+                ltxts.append(self.aux_repr_colonne(i))
+            #
+            t: int = max(len(l) for l in ltxts)
+            if t%2 == 1:
+                t += 1
+            #
+            for i in range(self.nb_lignes):
+                ltxts[i] += " "*(t-len(ltxts[i]))
+                ltxts[i] = "|"+ltxts[i]+"|"
+            #
+        else:
+            for i in range(0, 8):
+                ltxts.append(self.aux_repr_colonne(i))
+            #
+            ltxts.append("")
+            #
+            for i in range(0, -9, -1):
+                ltxts.append(self.aux_repr_colonne(i))
+            #
+            t: int = max(len(l) for l in ltxts)
+            if t%2 == 1:
+                t += 1
+            #
+            for i in list(range(0, 8))+list(range(0, -9, -1)):
+                ltxts[i] += " "*(t-len(ltxts[i]))
+                ltxts[i] = "|"+ltxts[i]+"|"
+            #
+            ltxts[8] = "|"+" "*(t-2)//2+"...."+" "*(t-2)//2+"|"
+            #
+        #
+        return "\n".join(ltxts)
+    
+    def depends_of_var(self, var: Variable) -> bool:
+        return any([any([self.coefs[i][j].depends_of_var(var) for j in range(self.nb_colonnes)]) for i in range(self.nb_lignes)])
+
+    def derive(self, var: Variable) -> 'Matrice':
+        new_coefs=[]
+        for i in range(self.nb_lignes):
+            new_coefs.append([])
+            for j in range(self.nb_colonnes):
+                new_coefs[i].append(self.coefs[i][j].derive())
+        #
+        return Matrice(self.nb_lignes, self.nb_colonnes, new_coefs)
+
+    def trace(self) -> Objet:
+        s = []
+        for i in range(min(self.nb_lignes, self.nb_colonnes)):
+            s.append(self.coefs[i][i])
+        return Somme(s).simplifie()
+
+    def determinant(self) -> Objet:
+        assert self.nb_lignes == self.nb_colonnes, "Le déterminant d'une matrice non carrée n'existe pas !"
+        #
+        #TODO
         
+
 
 
 """ """
