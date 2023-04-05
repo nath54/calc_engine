@@ -450,8 +450,8 @@ class Puissance(Objet):
     def __repr__(self) -> str:
         return self.obj.__repr__() + "^" + self.exposant.__repr__()
 
-    def depends_of_var(self, var: 'Variable') -> bool:
-        pass
+    def depends_of_var(self, var: Variable) -> bool:
+        return self.obj.depends_of_var(var) or self.exposant.depends_of_var(var)
 
     def derive(self, var: Variable) -> Objet:
         if not self.obj.depends_of_var(var):
@@ -475,6 +475,96 @@ class Puissance(Objet):
             return obj
         else:
             return Puissance(obj, exposant)
+
+# Polynôme 
+class Polynome(Objet):
+    def __init__(self, coefs:dict[int, Objet], var: Variable):
+        assert all([not coef.depends_of_var(var) for coef in coefs.values()]), "Les coefficients d'un polynôme ne peuvent pas dépendre de sa variable !"
+        assert all([(type(d) == int and d >= 0) for d in coefs.keys()]), "Les degrés doivent êtres des entiers positifs !"
+        #
+        super().__init__(nom=None)
+        #
+        self.var = var
+        self.coefficients:dict[int, Objet] = coefs # degré -> coefficient
+    
+    def __repr__(self) -> str:
+        degres = list(self.coefficients.keys()).sorted(reverse=True)
+        ltxts = []
+        #
+        for d in degres:
+            coef = self.coefficients[d]
+            txt = ""
+            if coef != Reel(1):
+                txt += coef.__repr__() + "*"
+            if d >= 10:
+                txt += self.var.__repr__()+"^{"+str(d)+"}"
+            else:
+                txt += self.var.__repr__()+"^"+str(d)
+            #
+            ltxts.append(txt)
+        #
+        return " + ".join(ltxts)
+    
+    def depends_of_var(self, var: Variable) -> bool:
+        return self.var == var or any([coef.depends_of_var(var) for coef in self.coefficients.values()])
+
+    def derive(self, var: Variable) -> Objet:
+        if self.var == var:
+            new_coefs = {}
+            for d in self.coefficients.keys():
+                if d >= 1:
+                    new_coefs[d-1] = Produit([Reel(d), self.coefficients[d]]).simplifie()
+            return Polynome(new_coefs).simplifie()
+        else:
+            new_coefs = {}
+            for d in self.coefficients.keys():
+                new_coefs[d] = self.coefficients[d].derive(var)
+            return Polynome(new_coefs).simplifie()
+
+    def simplifie(self) -> Objet:
+        new_coefs = {}
+        for d in self.coefficients.keys():
+            coef = self.coefficients[d].simplie()
+            if coef != Reel(0):
+                new_coefs[d] = coef
+        #
+        if len(new_coefs) == 0:
+            return Reel(0)
+        elif len(new_coefs) == 1 and list(new_coefs.keys())[0] == 0:
+            return list(new_coefs.values())[0]
+        else:
+            return Polynome(new_coefs)
+    
+    def degre(self):
+        return max(list(self.coefficients.keys()))
+
+    def evalue(self, o: Objet):
+        s = []
+        #
+        for d in self.coefficients.keys():
+            s.append(Produit([self.coefficients[d], Puissance(self.var, Reel(d))]))
+        #
+        return Somme(s)
+
+
+class Matrice(Objet):
+    def __init__(self, nb_lignes: int, nb_colonnes: int, coefs:list[list[Objet]] = None):
+        #
+        super().__init__(nom=None)
+        #
+        self.nb_lignes = nb_lignes
+        self.nb_colonnes = nb_colonnes
+        #
+        self.coefs = []
+        for i in range(nb_lignes):
+            self.coefs.append([])
+            for j in range(nb_colonnes):
+                if coefs != None and len(coefs) >= i and len(coefs[i]) >= j:
+                    self.coefs.append(coefs[i][j])
+                else:
+                    self.coefs.append(Reel(0))
+        
+
 
 """ """
 
