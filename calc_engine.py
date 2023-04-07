@@ -498,13 +498,15 @@ class Frac(Objet):
         #
         return Frac(Soustraction(Produit([self.numerateur.derive(var), self.denominateur]), Produit([self.numerateur, self.denominateur.derive(var)])), Puissance(self.denominateur, Reel(2)))
     
-    def simplifie(self) -> 'Objet':
-        if self.numerateur == self.denominateur:
+    def simplifie(self) -> Objet:
+        num = self.numerateur.simplifie()
+        denom = self.denominateur.simplifie()
+        if num == denom:
             return Reel(1)
-        elif self.denominateur == 1:
-            return self.numerateur()
+        elif denom == 1:
+            return num
         else:
-            return self
+            return Frac(num, denom)
 
 class Ln(Function):
     def __init__(self, f: Objet):
@@ -672,7 +674,7 @@ class Matrice(Objet):
                 #
                 ctxts.append("...")
                 #
-                for j in range(0, -9, -1):
+                for j in range(-1, -9, -1):
                     ctxts.append(self.coefs[i][j].__repr__())
             #
             return " ".join(ctxts)
@@ -684,8 +686,6 @@ class Matrice(Objet):
                 ltxts.append(self.aux_repr_colonne(i))
             #
             t: int = max(len(l) for l in ltxts)
-            if t%2 == 1:
-                t += 1
             #
             for i in range(self.nb_lignes):
                 ltxts[i] += " "*(t-len(ltxts[i]))
@@ -697,18 +697,25 @@ class Matrice(Objet):
             #
             ltxts.append("")
             #
-            for i in range(0, -9, -1):
+            for i in range(-1, -9, -1):
                 ltxts.append(self.aux_repr_colonne(i))
             #
             t: int = max(len(l) for l in ltxts)
-            if t%2 == 1:
-                t += 1
+            # if t%2 == 1:
+            #     t += 1
             #
-            for i in list(range(0, 8))+list(range(0, -9, -1)):
+            for i in list(range(0, 8))+list(range(-1, -10, -1)):
                 ltxts[i] += " "*(t-len(ltxts[i]))
                 ltxts[i] = "|"+ltxts[i]+"|"
             #
-            ltxts[8] = "|"+" "*(t-2)//2+"...."+" "*(t-2)//2+"|"
+            # if t % 2 == 1:
+            #     ltxts[8] = "|"+" "*((t-5)//2)+"..."+" "*((t-1)//2)+"|"
+            # else:
+            #     ltxts[8] = "|"+" "*((t-2)//2)+"...."+" "*((t-2)//2)+"|"
+            if self.nb_colonnes <= 16:
+                ltxts[8] = "|"+" ".join(["."]*self.nb_colonnes)+"|"
+            else:
+                ltxts[8] = "|"+" ".join(["."]*8)+" ... "+" ".join(["."]*8)+"|"
             #
         #
         return "\n"+"\n".join(ltxts)
@@ -733,6 +740,14 @@ class Matrice(Objet):
 
     def coefficient(self, i: int, j: int) -> Objet:
         return self.coefs[i][j]
+    
+    def transposee(self):
+        new_coefs = []
+        for j in range(self.nb_colonnes):
+            new_coefs.append([])
+            for i in range(self.nb_lignes):
+                new_coefs[j].append(self.coefs[i][j])
+        return Matrice(self.nb_colonnes, self.nb_lignes, new_coefs)
     
     def sous_matrice(self, enleve_lignes: list[int], enleve_colonnes: list[int]) -> 'Matrice':
         new_nb_lignes: int = 0
@@ -812,9 +827,7 @@ class Matrice(Objet):
         return Matrice(self.nb_lignes, self.nb_colonnes, coefs)
 
             
-            
 
-            
         
 
 
@@ -915,6 +928,22 @@ class DifferenceEnsemble(Ensemble):
 
 """  """
 
+def matrice_identite(dim: int) -> Matrice:
+    I_n: Matrice = Matrice(dim, dim)
+    for i in range(dim):
+        I_n.coefs[i][i] = Reel(1)
+    #
+    return I_n
+
+def matrice_elementaire(nb_lignes: int, nb_colonnes: int, i: int, j: int) -> Matrice:
+    assert 0 <= i <= nb_lignes and 0 <= j <= nb_colonnes, "Problèmes d'indices ! Out of bounds !"
+    E_ij: Matrice = Matrice(nb_lignes, nb_colonnes)
+    E_ij.coefs[i][j] = Reel(1)
+    return E_ij
+
+
+
+""" """
 
 
 

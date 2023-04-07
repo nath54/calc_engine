@@ -32,6 +32,9 @@ print("Matrice M2 : ",m2)
 print(m2.determinant())
 
 
+I_10 = matrice_identite(20)
+
+print("I_10 = ", I_10)
 
 
 
