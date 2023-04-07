@@ -260,7 +260,8 @@ class Derive(Function):
             return Reel(0)
         else:
             return Derive(None, self, var)
-    
+
+
 class Oppose(Objet):
     def __init__(self, o: Objet) -> None:
         super().__init__(nom=None)
@@ -325,7 +326,8 @@ class Somme(Objet):
         for o in self.objs:
             if type(o) == Reel:
                 sum_rls += o
-            elif o is Produit:
+                continue
+            if type(o) == Produit:
                 o = o.simplifie()
                 #
                 if len(o.objs) == 2 and type(o.objs[0]) == Reel:
@@ -333,16 +335,19 @@ class Somme(Objet):
                         sobjs[o] += o.objs[0].valeur
                     else:
                         sobjs[o] = o.objs[0].valeur
-            elif o is Oppose:
-                if o in sobjs:
-                    sobjs[o] -= 1
+                    continue
+            if type(o) == Oppose:
+                no = o.o.simplifie()
+                if no in sobjs:
+                    sobjs[no] -= 1
                 else:
-                    sobjs[o] = -1
+                    sobjs[no] = -1
+                continue
+            #
+            if o in sobjs:
+                sobjs[o] += 1
             else:
-                if o in sobjs:
-                    sobjs[o] += 1
-                else:
-                    sobjs[o] = 1
+                sobjs[o] = 1
         #
         new_objs = []
         #
@@ -538,7 +543,7 @@ class Puissance(Objet):
             self.exposant = Reel(self.exposant)
 
     def __repr__(self) -> str:
-        return self.obj.__repr__() + "^" + self.exposant.__repr__()
+        return "("+self.obj.__repr__() + "^" + self.exposant.__repr__()+")"
 
     def depends_of_var(self, var: Variable) -> bool:
         return self.obj.depends_of_var(var) or self.exposant.depends_of_var(var)
@@ -557,14 +562,14 @@ class Puissance(Objet):
         obj = self.obj.simplifie()
         exposant = self.exposant.simplifie()
         #
-        if obj == Reel(1):
+        if obj == 1:
             return Reel(1)
-        elif type(exposant) == Reel and exposant.valeur == 0:
+        if exposant == 0:
             return Reel(1)
-        elif type(exposant) == Reel and exposant.valeur == 1:
+        if exposant == 1:
             return obj
-        else:
-            return Puissance(obj, exposant)
+        #
+        return Puissance(obj, exposant)
 
 # Polynôme 
 class Polynome(Objet):
@@ -777,7 +782,7 @@ class Matrice(Objet):
         if self.nb_lignes == 1:
             return self.coefs[0][0].simplifie()
         elif self.nb_lignes == 2:
-            return Somme([Produit([self.coefs[0][0], self.coefs[1][1]]), Oppose(Produit([self.coefs[0][1]])), self.coefs[1][0]]).simplifie()
+            return Somme([Produit([self.coefs[0][0], self.coefs[1][1]]).simplifie(), Oppose(Produit([self.coefs[0][1]])).simplifie(), self.coefs[1][0]]).simplifie()
         else:
             m_triangularisee: 'Matrice' = self.pivot_de_gauss()
             p: list[Objet] = []
@@ -785,7 +790,6 @@ class Matrice(Objet):
                 p.append( m_triangularisee.coefficient(i, i) )
             #
             return Produit(p).simplifie()
-
 
     def pivot_de_gauss(self) -> 'Matrice':
         #
@@ -808,12 +812,12 @@ class Matrice(Objet):
                     continue
                 # On divise la ligne k par A[k][j]
                 for i in range(0, self.nb_lignes):
-                    print("before frac : ", coefs[i][j], coefs[k][j], coefs[i][j] == coefs[k][j])
+                    #print("before frac : ", coefs[i][j], coefs[k][j], coefs[i][j] == coefs[k][j])
                     coefs[i][j] = Frac(coefs[i][j], coefs[k][j]).simplifie()
-                    print("frac simplified : ", coefs[i][j])
+                    #print("frac simplified : ", coefs[i][j])
                 # On place le pivot en position r
                 if k != r:
-                    print(self.nb_lignes, k, r)
+                    #print(self.nb_lignes, k, r)
                     tmp = coefs[k]
                     coefs[k] = coefs[r]
                     coefs[r] = tmp
@@ -822,7 +826,7 @@ class Matrice(Objet):
                     if i != r:
                         # On soustrait à la ligne i la ligne r multipliée par coefs[i][j] (de façon à annuler coefs[i][j])
                         for jj in range(0, self.nb_colonnes):
-                            coefs[i][jj] = Somme([coefs[i][jj], Oppose(Produit([coefs[i][j], coefs[r][jj]]))]).simplifie()
+                            coefs[i][jj] = Somme([coefs[i][jj], Oppose(Produit([coefs[i][j], coefs[r][jj]]).simplifie()).simplifie()]).simplifie()
         #
         return Matrice(self.nb_lignes, self.nb_colonnes, coefs)
 
