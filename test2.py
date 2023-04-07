@@ -18,5 +18,21 @@ coefs = [[a, b, c], [d, e, f], [g, h, i]]
 
 m = Matrice(3, 3, coefs)
 
+print("Matrice M : ",m)
+
+print("Déterminant : ", m.determinant())
+
+
+coefs = [[a, b], [c, d]]
+
+m2 = Matrice(2, 2, coefs)
+
+print("Matrice M2 : ",m2)
+
+print(m2.determinant())
+
+
+
+
 
 
