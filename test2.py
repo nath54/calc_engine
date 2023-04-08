@@ -19,7 +19,7 @@ coefs = [[a, b, c], [d, e, f], [g, h, i]]
 m = Matrice(3, 3, coefs)
 
 
-m_gauss = m.pivot_de_gauss_determinant()
+m_gauss = m.pivot_de_gauss_determinant()[1]
 
 print("\nMatrice M : ",m, "\n")
 
@@ -33,7 +33,7 @@ coefs = [[a, b], [c, d]]
 
 m2 = Matrice(2, 2, coefs)
 
-m2_gauss = m2.m_gauss = m.pivot_de_gauss_determinant()
+m2_gauss = m2.pivot_de_gauss_determinant()[1]
 
 print("\nMatrice M2 : ",m2, "\n")
 

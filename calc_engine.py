@@ -28,6 +28,11 @@ def is_iterable(v) -> bool:
     except:
         return False
 
+def complete_string_with_white_spaces(s: str, t: int):
+    if len(s) >= t:
+        return s
+    else:
+        return s + " "*(t-len(s))
 
 """ Elements atomiques """
 
@@ -731,28 +736,36 @@ class Matrice(Objet):
                 else:
                     self.coefs[i].append(Reel(0))
     
-    def aux_repr_colonne(self, i: int) -> str:
+    def aux_repr_colonne(self, i: int, col_tmaxs: list[int]) -> str:
             ctxts: list[str] = []
             #
             if self.nb_colonnes <= 16:
                 for j in range(self.nb_colonnes):
-                    ctxts.append(self.coefs[i][j].__repr__())
+                    ctxts.append(complete_string_with_white_spaces(self.coefs[i][j].__repr__(), col_tmaxs[j]))
             else:
                 for j in range(0, 8):
-                    ctxts.append(self.coefs[i][j].__repr__())
+                    ctxts.append(complete_string_with_white_spaces(self.coefs[i][j].__repr__(), col_tmaxs[j]))
                 #
                 ctxts.append("...")
                 #
                 for j in range(-1, -9, -1):
-                    ctxts.append(self.coefs[i][j].__repr__())
+                    ctxts.append(complete_string_with_white_spaces(self.coefs[i][j].__repr__(), col_tmaxs[j]))
             #
             return " ".join(ctxts)
 
     def __repr__(self) -> str:
         ltxts: list[str] = []
+        # On calcule la taille maximale de chaque élément pour chaque colonne
+        col_tmaxs: list[int] = [0 for _ in range(0, self.nb_colonnes)]
+        for i in range(0, self.nb_lignes):
+            for j in range(0, self.nb_colonnes):
+                tj = len(self.coefs[i][j].__repr__())
+                if tj > col_tmaxs[j]:
+                    col_tmaxs[j] = tj
+        #
         if self.nb_lignes <= 16:
             for i in range(self.nb_lignes):
-                ltxts.append(self.aux_repr_colonne(i))
+                ltxts.append(self.aux_repr_colonne(i, col_tmaxs))
             #
             t: int = max(len(l) for l in ltxts)
             #
@@ -762,12 +775,12 @@ class Matrice(Objet):
             #
         else:
             for i in range(0, 8):
-                ltxts.append(self.aux_repr_colonne(i))
+                ltxts.append(self.aux_repr_colonne(i, col_tmaxs))
             #
             ltxts.append("")
             #
             for i in range(-1, -9, -1):
-                ltxts.append(self.aux_repr_colonne(i))
+                ltxts.append(self.aux_repr_colonne(i, col_tmaxs))
             #
             t: int = max(len(l) for l in ltxts)
             # if t%2 == 1:
