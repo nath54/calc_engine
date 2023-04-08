@@ -10,12 +10,12 @@ This project isn't finished at all. It has only began, and a lot and a lot and a
 
 ## Features / Showcase
 
-#TODO : Write this part of the reamde
+#TODO : Write this part of the readme
 
 ## How to Use
 
-#TODO : Write this part of the reamde
+#TODO : Write this part of the readme
 
 ## More Informations
 
-#TODO : Write this part of the reamde
+#TODO : Write this part of the readme
