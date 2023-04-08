@@ -967,7 +967,7 @@ class UnionEnsembles(Ensemble):
         return any([e.inclus_dans(ensemble) for e in self.liste_ensembles])
 
 
-class IntersectionEnsemble(Ensemble):
+class IntersectionEnsembles(Ensemble):
     def __init__(self, liste_ensembles: list[Ensemble]) -> None:
         super().__init__(nom=None)
         #
@@ -980,7 +980,7 @@ class IntersectionEnsemble(Ensemble):
         return all([e.inclus_dans(ensemble) for e in self.liste_ensembles])
     
 
-class DifferenceEnsemble(Ensemble):
+class DifferenceEnsembles(Ensemble):
     def __init__(self, e1: Ensemble, e2: Ensemble) -> None:
         super().__init__(nom=None)
         #
@@ -991,7 +991,7 @@ class DifferenceEnsemble(Ensemble):
         return "("+self.e1.__repr__()+"\\"+self.e2.__repr__()+")"
     
     def inclus_dans(self, ensemble: Ensemble) -> bool:
-        return self.e1.inclus_dans(ensemble) and IntersectionEnsemble([self.e2, ensemble]).simplifie() == EnsembleVide
+        return self.e1.inclus_dans(ensemble) and IntersectionEnsembles([self.e2, ensemble]).simplifie() == EnsembleVide
 
 
 
