@@ -69,6 +69,7 @@ class Objet():
         return Reel(0)
     
     def simplifie(self) -> 'Objet':
+        #print("Simplifie ", self, " => ", self)
         return self
         
 """ """
@@ -174,6 +175,10 @@ class Reel(Objet):
     
     def derive(self, var: 'Variable') -> Objet:
         return Reel(0)
+    
+    def simplifie(self) -> Objet:
+        #print("Simplifie ", self, " => ", self)
+        return deepcopy(self)
 
 
 class Variable(Objet):
@@ -205,6 +210,10 @@ class Variable(Objet):
             return Reel(1)
         else:
             return Reel(0)
+    
+    def simplifie(self) -> Objet:
+        #print("Simplifie ", self, " => ", self)
+        return deepcopy(self)
 
 
 class Function(Objet):
@@ -217,10 +226,15 @@ class Function(Objet):
         return self.nom+"("+", ".join([v.__repr__() for v in self.variables])+")"
     
     def derive(self, var: Variable):
-        return Derive(nom=None, fct=self, var=var)
+        return Derivee(nom=None, fct=self, var=var)
+    
+    def simplifie(self) -> Objet:
+        #print("Simplifie ", self, " => ", self)
+        return deepcopy(self)
+    
 
 
-class Derive(Function):
+class Derivee(Function):
     def __init__(self, nom: str, fct: Function, var: Variable) -> None:
         super().__init__(nom)
         self.derive_fct: Function = fct
@@ -239,13 +253,13 @@ class Derive(Function):
             return f"({numerator})/({denominator})"
 
     def get_order(self) -> int:
-        if isinstance(self.derive_fct, Derive):
+        if isinstance(self.derive_fct, Derivee):
             return 1 + self.derive_fct.get_order()
         else:
             return 1
 
     def get_variable_orders(self) -> dict[str, int]:
-        if isinstance(self.derive_fct, Derive):
+        if isinstance(self.derive_fct, Derivee):
             orders = self.derive_fct.get_variable_orders()
         else:
             orders = {v.nom: 0 for v in self.derive_fct.variables}
@@ -259,7 +273,7 @@ class Derive(Function):
         if not self.depends_of_var(var):
             return Reel(0)
         else:
-            return Derive(None, self, var)
+            return Derivee(None, self, var)
 
 
 class Oppose(Objet):
@@ -272,7 +286,11 @@ class Oppose(Objet):
             self.o = Reel(self.o)
     
     def __repr__(self) -> str:
-        return "-"+self.o.__repr__()
+        if type(self.o) in [Objet, Variable, 'Fonction']:
+            return "-"+self.o.__repr__()
+        else:
+            return "- "+self.o.__repr__()
+
     
     def depends_of_var(self, var: Variable) -> bool:
         return self.o.depends_of_var()
@@ -283,13 +301,22 @@ class Oppose(Objet):
     def simplifie(self) -> Objet:
         obj = self.o.simplifie()
         if type(obj) == Oppose:
-            return (obj.o).simplifie()
-        elif obj == Reel(0):
-            return Reel(0)
+            #print("Simplifie ", self, " => ", obj.o)
+            return obj.o
+        elif type(obj) == Produit:
+            if type(obj.objs[0]) == Reel and obj.objs[0] < 0:
+                return Produit([-1]+obj.objs).simplifie()
+            else:
+                return Oppose(obj)
+        elif type(obj) == Reel:
+            #print("Simplifie ", self, " => ", Reel(-obj.valeur))
+            return Reel(-obj.valeur)
         else:
+            #print("Simplifie ", self, " => ", Oppose(obj))
             return Oppose(obj)
         
 
+            
 class Somme(Objet):
     def __init__(self, objs: list[Objet]) -> None:
         super().__init__(nom=None)
@@ -301,7 +328,16 @@ class Somme(Objet):
                 self.objs[i] = Reel(self.objs[i])
 
     def __repr__(self) -> str:
-        return "("+" + ".join([o.__repr__() for o in self.objs])+")"
+        txt = "("
+        for i in range(len(self.objs)):
+            if i != 0:
+                if type(self.objs[i]) == Oppose:
+                    txt += " "
+                else:
+                    txt += " + "
+            txt += self.objs[i].__repr__()
+        txt += ")"
+        return txt
     
     def depends_of_var(self, var: Variable) -> bool:
         return any([o.depends_of_var(var) for o in self.objs])
@@ -324,12 +360,11 @@ class Somme(Objet):
         sobjs = {}
         #
         for o in self.objs:
+            o = o.simplifie()
             if type(o) == Reel:
                 sum_rls += o
                 continue
             if type(o) == Produit:
-                o = o.simplifie()
-                #
                 if len(o.objs) == 2 and type(o.objs[0]) == Reel:
                     if o in sobjs:
                         sobjs[o] += o.objs[0].valeur
@@ -356,6 +391,8 @@ class Somme(Objet):
                 continue
             elif sobjs[ko] == 1:
                 new_objs.append(ko)
+            elif sobjs[ko] == -1:
+                new_objs.append(Oppose(ko))
             elif sobjs[ko] < 0:
                 new_objs.append(Oppose(Produit([Reel(-sobjs[ko]), ko])))
             else:
@@ -365,10 +402,13 @@ class Somme(Objet):
             new_objs.append(sum_rls)
         #
         if len(new_objs)==0:
+            #print("Simplifie ", self, " => ", Reel(0))
             return Reel(0)
         elif len(new_objs) == 1:
+            #print("Simplifie ", self, " => ", new_objs[0])
             return new_objs[0]
         else:
+            #print("Simplifie ", self, " => ", Somme(new_objs))
             return Somme(new_objs)
 
 class Soustraction(Objet):
@@ -394,6 +434,9 @@ class Soustraction(Objet):
             return Soustraction(self.o1.derive(var), self.o2.derive(var))
         else:
             return Reel(0)
+        
+    def simplifie(self) -> 'Objet':
+        return Somme([self.o1, Oppose(self.o2)]).simplifie()
 
 
 class Produit(Objet):
@@ -432,18 +475,23 @@ class Produit(Objet):
     
     def simplifie(self) -> Objet:
         # On rassemble les produits entre eux, on simplifie les objets, et on teste le produit nul
-        objs = []
+        signe: int = 1
+        objs: list[Objet] = []
         for o in self.objs:
             o = o.simplifie()
-            if o is Produit:
+            if type(o) == Produit:
                 objs += o.objs
-            elif o == Reel(0):
+            elif type(o) == Oppose:
+                signe *= -1
+                objs.append(o.o)
+            elif o == 0:
+                #print("Simplifie ", self, " => ", Reel(0))
                 return Reel(0)
             else:
                 objs.append(o)
         # pré-tri
-        prod_rls = Reel(1)
-        sobjs = {}
+        prod_rls: Reel = Reel(signe)
+        sobjs: dict[Objet, Objet] = {}
         #
         for o in objs:
             if type(o) == Reel:
@@ -462,21 +510,26 @@ class Produit(Objet):
         new_objs = []
         #
         if prod_rls == 0:
+            #print("Simplifie ", self, " => ", Reel(0))
             return Reel(0)
         elif prod_rls!=1:
             new_objs.append(prod_rls)
         #
         for ko in sobjs.keys():
-            if sobjs[ko] == 1:
+            sko = Somme(sobjs[ko]).simplifie()
+            if sko == 1:
                 new_objs.append(ko)
             else:
-                new_objs.append(Puissance(ko, Somme(sobjs[ko]).simplifie()))
+                new_objs.append(Puissance(ko, sko))
         #
         if len(new_objs) == 0:
+            #print("Simplifie ", self, " => ", Reel(1))
             return Reel(1)
         elif len(new_objs) == 1:
+            #print("Simplifie ", self, " => ", new_objs[0])
             return new_objs[0]
         else:
+            #print("Simplifie ", self, " => ", Produit(new_objs))
             return Produit(new_objs)
 
 class Frac(Objet):
@@ -507,10 +560,13 @@ class Frac(Objet):
         num = self.numerateur.simplifie()
         denom = self.denominateur.simplifie()
         if num == denom:
+            #print("Simplifie ", self, " => ", Reel(1))
             return Reel(1)
         elif denom == 1:
+            #print("Simplifie ", self, " => ", num)
             return num
         else:
+            #print("Simplifie ", self, " => ", Frac(num, denom))
             return Frac(num, denom)
 
 class Ln(Function):
@@ -563,12 +619,16 @@ class Puissance(Objet):
         exposant = self.exposant.simplifie()
         #
         if obj == 1:
+            #print("Simplifie ", self, " => ", Reel(1))
             return Reel(1)
         if exposant == 0:
+            #print("Simplifie ", self, " => ", Reel(1))
             return Reel(1)
         if exposant == 1:
+            #print("Simplifie ", self, " => ", obj)
             return obj
         #
+        #print("Simplifie ", self, " => ", Puissance(obj, exposant))
         return Puissance(obj, exposant)
 
 # Polynôme 
@@ -628,10 +688,13 @@ class Polynome(Objet):
                 new_coefs[d] = coef
         #
         if len(new_coefs) == 0:
+            #print("Simplifie ", self, " => ", Reel(0))
             return Reel(0)
         elif len(new_coefs) == 1 and list(new_coefs.keys())[0] == 0:
+            #print("Simplifie ", self, " => ", list(new_coefs.values())[0])
             return list(new_coefs.values())[0]
         else:
+            #print("Simplifie ", self, " => ", Polynome(new_coefs))
             return Polynome(new_coefs)
     
     def degre(self):
@@ -782,7 +845,7 @@ class Matrice(Objet):
         if self.nb_lignes == 1:
             return self.coefs[0][0].simplifie()
         elif self.nb_lignes == 2:
-            return Somme([Produit([self.coefs[0][0], self.coefs[1][1]]).simplifie(), Oppose(Produit([self.coefs[0][1]])).simplifie(), self.coefs[1][0]]).simplifie()
+            return Somme( [Produit([self.coefs[0][0], self.coefs[1][1]]).simplifie(), Oppose(Produit([self.coefs[0][1], self.coefs[1][0]])).simplifie() ]).simplifie()
         else:
             m_triangularisee: 'Matrice' = self.pivot_de_gauss()
             p: list[Objet] = []
@@ -795,10 +858,12 @@ class Matrice(Objet):
         #
         coefs: list[list[Objet]] = deepcopy(self.coefs)
         #
-        r: int = 0
+        r: int = -1
         for j in range(0, self.nb_colonnes):
+            #
+            print("Etape du pivot de Gauss : ", Matrice(self.nb_lignes, self.nb_colonnes, coefs))
             # On cherche le pivot
-            i_max: int = r
+            i_max: int = r+1
             for i in range(0, self.nb_lignes):
                 #if coefs[i][j] > coefs[i_max][j]:
                 if coefs[i][j] != 0:
