@@ -14,6 +14,10 @@ _Z: Optional['SousEnsemble'] = None
 _N: Optional['SousEnsemble'] = None
 _empty: Optional['EnsembleVide'] = None
 
+NaN: 'Objet' = None
+Infinity: 'Objet' = None
+
+
 """ Some configurations """
 
 mp.dps = 50
@@ -28,11 +32,141 @@ def is_iterable(v) -> bool:
     except:
         return False
 
+
 def complete_string_with_white_spaces(s: str, t: int):
     if len(s) >= t:
         return s
     else:
         return s + " "*(t-len(s))
+    
+
+def aux_simplify_produit_et_frac(p_objs: list['Objet']) -> tuple['Reel', dict['Objet', 'Objet']]:
+    # On rassemble les produits entre eux, on simplifie les objets, et on teste le produit nul
+    signe: int = 1
+    objs: list[Objet] = []
+    for o in p_objs:
+        o = o.simplifie()
+        if type(o) == Produit:
+            objs += o.objs
+        elif type(o) == Frac:
+            num = o.numerateur
+            if type(num) == Produit:
+                objs += num.objs
+            else:
+                objs.append(num)
+            #
+            denom = o.numerateur
+            if type(denom) == Produit:
+                objs += [Inverse(oo) for oo in denom.objs]
+            else:
+                objs.append(Inverse(denom))
+        elif type(o) == Inverse:
+            if type(o.obj) == Produit:
+                objs += [Inverse(oo) for oo in o.obj.objs]
+            else:
+                objs.append(o)
+        elif type(o) == Oppose:
+            signe *= -1
+            objs.append(o.o)
+        elif o == 0:
+            #print("Simplifie (Produit) ", self, " => ", Reel(0))
+            return Reel(0)
+        else:
+            objs.append(o)
+    # pré-tri
+    prod_rls: Reel = Reel(signe)
+    sobjs: dict[Objet, Objet] = {}
+    #
+    for o in objs:
+        if type(o) == Reel:
+            prod_rls *= o
+        elif type(o) == Puissance:
+            if o.obj in sobjs:
+                sobjs[o.obj].append(o.exposant)
+            else:
+                sobjs[o.obj] = [o.exposant]
+        elif type(o) == Inverse:
+            if o.obj in sobjs:
+                sobjs[o.obj].append(Reel(-1))
+            else:
+                sobjs[o.obj] = [Reel(-1)]
+        else:
+            if o in sobjs:
+                sobjs[o].append(Reel(1))
+            else:
+                sobjs[o] = [Reel(1)]
+    #
+    return prod_rls, sobjs
+    
+def aux_simplify_produit(p_objs: list['Objet']) -> 'Objet':
+    prod_rls, sobjs = aux_simplify_produit_et_frac(p_objs)
+    #
+    new_objs = []
+    #
+    if prod_rls == 0:
+        #print("Simplifie (Produit) ", self, " => ", Reel(0))
+        return Reel(0)
+    elif prod_rls!=1:
+        new_objs.append(prod_rls)
+    #
+    for ko in sobjs.keys():
+        sko = Somme(sobjs[ko]).simplifie()
+        if sko == 1:
+            new_objs.append(ko)
+        else:
+            new_objs.append(Puissance(ko, sko))
+    #
+    if len(new_objs) == 0:
+        #print("Simplifie (Produit) ", self, " => ", Reel(1))
+        return Reel(1)
+    elif len(new_objs) == 1:
+        #print("Simplifie (Produit) ", self, " => ", new_objs[0])
+        return new_objs[0]
+    else:
+        #print("Simplifie (Produit) ", self, " => ", Produit(new_objs))
+        return Produit(new_objs)
+
+def aux_simplify_frac(f_num: 'Objet', f_denom: 'Objet') -> 'Objet':
+    prod_rls, sobjs = aux_simplify_produit_et_frac([f_num, Inverse(f_denom)])
+    #
+    new_nums = []
+    new_denoms = []
+    #
+    if prod_rls == 0:
+        #print("Simplifie (Fraction) ", self, " => ", Reel(0))
+        return Reel(0)
+    elif prod_rls!=1:
+        new_nums.append(prod_rls)
+    #
+    for ko in sobjs.keys():
+        sko = Somme(sobjs[ko]).simplifie()
+        if sko == 1:
+            new_nums.append(ko)
+        elif sko == -1:
+            new_denoms.append(ko)
+        elif type(sko) == Reel and sko < 0:
+            new_denoms.append(Puissance(ko, -sko.value))
+        else:
+            new_nums.append(Puissance(ko, sko))
+    #
+    if len(new_denoms) == 0:
+        if len(new_nums) == 0:
+            #print("Simplifie (Fraction) ", self, " => ", Reel(1))
+            return Reel(1)
+        elif len(new_nums) == 1:
+            #print("Simplifie (Fraction) ", self, " => ", new_nums[0])
+            return new_nums[0]
+        else:
+            #print("Simplifie (Fraction) ", self, " => ", Produit(new_nums))
+            return Produit(new_nums)
+    else:
+        denom: Objet = new_denoms[0] if len(new_denoms) == 1 else Produit(new_denoms)
+        if len(new_nums) == 0 or new_nums == [1]:
+            #print("Simplifie (Fraction) ", self, " => ", Inverse(Produit(new_denoms)))
+            return Inverse(Produit(new_denoms))
+        num: Objet = new_nums[0] if len(new_nums) == 1 else Produit(new_nums)
+        #print("Simplifie (Fraction) ", self, " => ", Frac(Produit(new_nums), Produit(new_denoms)))
+        return Frac(num, denom)
 
 """ Elements atomiques """
 
@@ -89,6 +223,9 @@ class Reel(Objet):
     
     def __repr__(self) -> str:
         return str(self.valeur)
+    
+    def __hash__(self) -> int:
+        return self.__repr__().__hash__()
     
     def __add__(self, r) -> 'Reel':
         if type(r) == Reel:
@@ -480,63 +617,41 @@ class Produit(Objet):
         return Produit([Produit(autres), Somme(derivees)])
     
     def simplifie(self) -> Objet:
-        # On rassemble les produits entre eux, on simplifie les objets, et on teste le produit nul
-        signe: int = 1
-        objs: list[Objet] = []
-        for o in self.objs:
-            o = o.simplifie()
-            if type(o) == Produit:
-                objs += o.objs
-            elif type(o) == Oppose:
-                signe *= -1
-                objs.append(o.o)
-            elif o == 0:
-                #print("Simplifie (Produit) ", self, " => ", Reel(0))
-                return Reel(0)
-            else:
-                objs.append(o)
-        # pré-tri
-        prod_rls: Reel = Reel(signe)
-        sobjs: dict[Objet, Objet] = {}
+        return aux_simplify_produit(self.objs)
+
+class Inverse(Objet):
+    def __init__(self, obj: Objet):
+        super().__init__(nom=None)
         #
-        for o in objs:
-            if type(o) == Reel:
-                prod_rls *= o
-            elif o is Puissance:
-                if o.obj in sobjs:
-                    sobjs[o.obj].append(o.exposant)
-                else:
-                    sobjs[o.obj] = [o.exposant]
-            else:
-                if o in sobjs:
-                    sobjs[o].append(Reel(1))
-                else:
-                    sobjs[o] = [Reel(1)]
+        self.obj = obj
         #
-        new_objs = []
-        #
-        if prod_rls == 0:
-            #print("Simplifie (Produit) ", self, " => ", Reel(0))
+        if type(self.obj) in [int, float]:
+            self.obj = Reel(self.obj)
+        
+    def __repr__(self):
+        return "1/"+self.obj.__repr__()
+
+    def depends_of_var(self, var: Variable) -> bool:
+        return self.obj.depends_of_var(var)
+    
+    def derive(self, var: Variable) -> Objet:
+        if not self.depends_of_var(var):
             return Reel(0)
-        elif prod_rls!=1:
-            new_objs.append(prod_rls)
         #
-        for ko in sobjs.keys():
-            sko = Somme(sobjs[ko]).simplifie()
-            if sko == 1:
-                new_objs.append(ko)
-            else:
-                new_objs.append(Puissance(ko, sko))
+        return Frac(Oppose(self.obj.derive(var)), Puissance(self.obj, 2))
+    
+    def simplifie(self) -> Objet:
+        obj = self.obj.simplifie()
+        if type(obj) == Inverse:
+            #print("Simplifie (Inverse) ", self, " => ", obj.obj)
+            return obj.obj
+        if type(obj) == Frac:
+            #print("Simplifie (Inverse) ", self, " => ", obj.inverse())
+            return obj.inverse()
         #
-        if len(new_objs) == 0:
-            #print("Simplifie (Produit) ", self, " => ", Reel(1))
-            return Reel(1)
-        elif len(new_objs) == 1:
-            #print("Simplifie (Produit) ", self, " => ", new_objs[0])
-            return new_objs[0]
-        else:
-            #print("Simplifie (Produit) ", self, " => ", Produit(new_objs))
-            return Produit(new_objs)
+        #print("Simplifie (Inverse) ", self, " => ", Inverse(obj))
+        return Inverse(obj)
+
 
 class Frac(Objet):
     def __init__(self, numerateur: Objet, denominateur: Objet):
@@ -562,18 +677,22 @@ class Frac(Objet):
         #
         return Frac(Soustraction(Produit([self.numerateur.derive(var), self.denominateur]), Produit([self.numerateur, self.denominateur.derive(var)])), Puissance(self.denominateur, Reel(2)))
     
+    def inverse(self) -> 'Frac':
+        return Frac(self.denominateur, self.numerateur)
+
     def simplifie(self) -> Objet:
         num = self.numerateur.simplifie()
         denom = self.denominateur.simplifie()
-        if num == denom or num.__repr__() == denom.__repr__():
-            #print("Simplifie (Frac, 1) ", self, " => ", Reel(1))
-            return Reel(1)
-        elif denom == 1:
-            #print("Simplifie (Frac, 2) ", self, " => ", num)
-            return num
-        else:
-            #print("Simplifie (Frac, 3) ", self, " => ", Frac(num, denom), ",  type(num) : ", type(num), ",  type(denom) : ", type(denom), ",  repr(num) : ", num.__repr__(), ",  repr(denom) : ", denom.__repr__() )
-            return Frac(num, denom)
+        return aux_simplify_frac(num, denom)
+        # if num == denom or num.__repr__() == denom.__repr__():
+        #     #print("Simplifie (Frac, 1) ", self, " => ", Reel(1))
+        #     return Reel(1)
+        # elif denom == 1:!
+        #     #print("Simplifie (Frac, 2) ", self, " => ", num)
+        #     return num
+        # else:
+        #     #print("Simplifie (Frac, 3) ", self, " => ", Frac(num, denom), ",  type(num) : ", type(num), ",  type(denom) : ", type(denom), ",  repr(num) : ", num.__repr__(), ",  repr(denom) : ", denom.__repr__() )
+        #     return Frac(num, denom)
 
 class Ln(Fonction):
     def __init__(self, f: Objet):
@@ -633,6 +752,9 @@ class Puissance(Objet):
         if exposant == 1:
             #print("Simplifie (Puissance) ", self, " => ", obj)
             return obj
+        if exposant == -1:
+            #print("Simplifie (Puissance) ", self, " => ", Inverse(obj))
+            return Inverse(obj)
         #
         #print("Simplifie (Puissance) ", self, " => ", Puissance(obj, exposant))
         return Puissance(obj, exposant)
@@ -1075,3 +1197,5 @@ _N = SousEnsemble("_N", _Z)
 
 _empty = EnsembleVide()
 
+Nan = Objet("NaN")
+Infinity = Objet("Infinity")
