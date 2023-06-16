@@ -32,13 +32,11 @@ def is_iterable(v) -> bool:
     except:
         return False
 
-
 def complete_string_with_white_spaces(s: str, t: int):
     if len(s) >= t:
         return s
     else:
         return s + " "*(t-len(s))
-    
 
 def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list['Objet']) -> 'Objet':
     """
@@ -49,6 +47,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
     # On va ici décomposer les sous_produits et les sous_fractions pour tout mettre au même niveau
     signe: int = 1
     objets_decomposes: list[Objet] = []
+
     # Boucle de décomposition
     for objet in objets_du_produit:
         # On simplifie d'abord l'objet
@@ -60,13 +59,22 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
             # On va exporter le signe, et retraiter l'objet
             signe *= -1
             objet_simplifie = objet_simplifie.o
+
+
+        ### Cas où l'objet serait nul ###
+        if objet_simplifie == 0:
+            # On va pouvoir simplifier très facilement, car toute multiplication avec 0 est égale à 0
+            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(0))
+            return Reel(0)
         ### Cas où l'objet est un produit ###
-        if type(objet_simplifie) is Produit:
+        elif type(objet_simplifie) is Produit:
             objets_decomposes += objet_simplifie.objs
+
         ### Cas où l'objet est une fraction ###
         elif type(objet_simplifie) is Frac:
             ## On traite le numérateur ##
             numerateur = objet_simplifie.numerateur
+
             # Si le numérateur n'est qu'un simple produit, on va pouvoir directement le mettre en produit avec les éléments au premier niveau
             if type(numerateur) is Produit:
                 objets_decomposes += numerateur.objs
@@ -74,6 +82,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
             else:
                 objets_decomposes.append(numerateur)
             ## On traite le dénominateur ##
+
             denominateur = objet_simplifie.denominateur
             # Si le dénominateur est un produit, on va pouvoir le décomposer et appliquer la formule `1/(a*b) = 1/a * 1/b)`
             if type(denominateur) is Produit:
@@ -81,6 +90,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
             # Sinon, on ne peux pas simplifier plus que ça
             else:
                 objets_decomposes.append(Inverse(denominateur))
+    
         ### Cas où l'objet est in inverse de la forme (1/expression) ###
         elif type(objet_simplifie) is Inverse:
             # Si le dénominateur est un produit, on va pouvoir le décomposer et appliquer la formule `1/(a*b) = 1/a * 1/b)`
@@ -89,11 +99,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
             # Sinon, on ne peux pas simplifier plus que ça
             else:
                 objets_decomposes.append(objet_simplifie)
-        ### Cas où l'objet serait nul ###
-        elif objet_simplifie == 0:
-            # On va pouvoir simplifier très facilement, car toute multiplication avec 0 est égale à 0
-            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(0))
-            return Reel(0)
+    
         ### Cas où l'on a juste affaire à un objet général, sans plus de précisions ###
         else:
             # On ne peux donc pas simplifier plus que ça
@@ -111,60 +117,87 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
         ### Cas où l'objet est un réel ###
         if type(objet) is Reel:
             produit_des_nombres_reels *= objet
+    
         ### Cas où l'objet serait déjà une puissance ###
         elif type(objet) is Puissance:
             if objet.obj in objets_par_puissance:
                 objets_par_puissance[objet.obj].append(objet.exposant)
             else:
                 objets_par_puissance[objet.obj] = [objet.exposant]
+        
         ### Cas où l'objet est un inverse ###
         elif type(objet) is Inverse:
             if objet.obj in objets_par_puissance:
                 objets_par_puissance[objet.obj].append(Reel(-1))
             else:
                 objets_par_puissance[objet.obj] = [Reel(-1)]
+    
         ### Cas où l'objet est un objet général, sans plus d'informations que cela ###
         else:
             if objet in objets_par_puissance:
                 objets_par_puissance[objet].append(Reel(1))
             else:
                 objets_par_puissance[objet] = [Reel(1)]
-    #
+
+    # On va ici trier les éléments qui seront au dénominateur et ceux qui seront au numérateur
     nouveau_numerateurs = []
     nouveau_denominateur = []
-    #
+
+    # Si on a une multiplication par 0, on simplifie
     if produit_des_nombres_reels == 0:
         print("Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(0))
         return Reel(0)
+    # Sinon, si les réels ne se simplifient pas, on les ajoute au numérateur
     elif produit_des_nombres_reels!=1:
         nouveau_numerateurs.append(produit_des_nombres_reels)
-    #
+    
+    # On va parcourir tous les objets que l'on avait trié par base égale
     for base_objet in objets_par_puissance.keys():
+        # On simplifie l'expression de la somme des puissances
         somme_puissances_de_base_objet = Somme(objets_par_puissance[base_objet]).simplifie()
+
+        # a^1 = a
         if somme_puissances_de_base_objet == 1:
             nouveau_numerateurs.append(base_objet)
+        # a^{-1} = 1/a
         elif somme_puissances_de_base_objet == -1:
             nouveau_denominateur.append(base_objet)
+        # Si l'exposant est réel négatif, on ajoute l'élément au dénominateur
         elif type(somme_puissances_de_base_objet) is Reel and somme_puissances_de_base_objet < 0:
             nouveau_denominateur.append(Puissance(base_objet, -somme_puissances_de_base_objet.value).simplifie())
+        # Sinon, on ajoute l'élément au numérateur
         else:
             nouveau_numerateurs.append(Puissance(base_objet, somme_puissances_de_base_objet).simplifie())
-    #
-    if len(nouveau_denominateur) == 0:
+
+    # On va maintenant finir en détectant plusieurs cas
+    ### Cas où le dénominateur est vide ###
+    if len(nouveau_denominateur) == 0 or nouveau_denominateur == [1]:
+        ## 1/1 = 1
         if len(nouveau_numerateurs) == 0:
             print("Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(1))
             return Reel(1)
+        
+        ## (a)/1 = a
         elif len(nouveau_numerateurs) == 1:
             print("Simplifie (Prod/Frac) ", objet_initial, " => ", nouveau_numerateurs[0])
             return nouveau_numerateurs[0]
+        
+        ## (expr)/1 = expr
         else:
             print("Simplifie (Prod/Frac) ", objet_initial, " => ", Produit(nouveau_numerateurs))
             return Produit(nouveau_numerateurs)
+
+    ### Cas où le dénominateur n'est pas vide ###
     else:
+        # On prépare le dénominateur final
         denominateur_final: Objet = nouveau_denominateur[0] if len(nouveau_denominateur) == 1 else Produit(nouveau_denominateur)
+
+        ## Si le numérateur est égal à 1, on renvoie juste l'inverse du dénominateur
         if len(nouveau_numerateurs) == 0 or nouveau_numerateurs == [1]:
             print("Simplifie (Prod/Frac) ", objet_initial, " => ", Inverse(Produit(nouveau_denominateur)))
             return Inverse(Produit(nouveau_denominateur))
+        
+        ## Sinon, on prépare le numérateur final, et on renvoie la fraction (expression numérateur)/(expression dénominateur)
         numerateur_final: Objet = nouveau_numerateurs[0] if len(nouveau_numerateurs) == 1 else Produit(nouveau_numerateurs)
         print("Simplifie (Prod/Frac) ", objet_initial, " => ", Frac(Produit(nouveau_numerateurs), Produit(nouveau_denominateur)))
         return Frac(numerateur_final, denominateur_final)
@@ -178,12 +211,9 @@ def aux_simplify_frac(frac: 'Frac', f_num: 'Objet', f_denom: 'Objet') -> 'Objet'
 
 """ Elements atomiques """
 
-
 class Hypothese():
     def __init__(self):
         pass
-
-
 
 class Objet():
     def __init__(self, nom: str, ensemble_parent: 'Ensemble'=None, hypotheses: list[Hypothese] = []) -> None:
@@ -198,8 +228,15 @@ class Objet():
         return self.__repr__().__hash__()
 
     def __eq__(self, __value: object) -> bool:
+        self_simplifie = self.simplifie()
         if type(__value) is Objet:
-            return self.__repr__() == __value.__repr__()
+            value_simplifie = __value.simplifie()
+        else:
+            value_simplifie = __value
+        if type(__value) is Objet:
+            return self_simplifie.__repr__() == value_simplifie.__repr__()
+        elif type(self_simplifie) in [int, float, Reel]:
+            return self_simplifie == value_simplifie
         else:
             return False
 
@@ -219,7 +256,6 @@ class Objet():
         print("Simplifie (Objet) ", self, " => ", self)
         return self
 
-# Class Ensemble
 
 """ """
 
@@ -764,15 +800,19 @@ class Puissance(Objet):
         if obj == 1:
             print("Simplifie (Puissance) ", self, " => ", Reel(1))
             return Reel(1)
+        
         if exposant == 0:
             print("Simplifie (Puissance) ", self, " => ", Reel(1))
             return Reel(1)
+        
         if exposant == 1:
             print("Simplifie (Puissance) ", self, " => ", obj)
             return obj
+        
         if exposant == -1:
             print("Simplifie (Puissance) ", self, " => ", Inverse(obj))
             return Inverse(obj)
+        
         #
         print("Simplifie (Puissance) ", self, " => ", Puissance(obj, exposant))
         return Puissance(obj, exposant)
@@ -1089,6 +1129,7 @@ class Matrice(Objet):
             return Produit(p).simplifie()
 
 
+# Class Ensemble
 
 """ """
 
