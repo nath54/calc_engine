@@ -17,6 +17,8 @@ _empty: Optional['EnsembleVide'] = None
 NaN: 'Objet' = None
 Infinity: 'Objet' = None
 
+#TODO
+simplications: dict = {} # Un peu de mémoisation pour accélérer un peu, comme je répète pas mal de fois les fonctions `simplifie()`
 
 """ Some configurations """
 
@@ -59,7 +61,6 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
             # On va exporter le signe, et retraiter l'objet
             signe *= -1
             objet_simplifie = objet_simplifie.o
-
 
         ### Cas où l'objet serait nul ###
         if objet_simplifie == 0:
@@ -190,16 +191,16 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
     ### Cas où le dénominateur n'est pas vide ###
     else:
         # On prépare le dénominateur final
-        denominateur_final: Objet = nouveau_denominateur[0] if len(nouveau_denominateur) == 1 else Produit(nouveau_denominateur)
+        denominateur_final: Objet = nouveau_denominateur[0] if len(nouveau_denominateur) == 1 else Produit(nouveau_denominateur).simplifie()
 
         ## Si le numérateur est égal à 1, on renvoie juste l'inverse du dénominateur
         if len(nouveau_numerateurs) == 0 or nouveau_numerateurs == [1]:
-            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Inverse(Produit(nouveau_denominateur)))
+            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Inverse(Produit(nouveau_denominateur)).simplifie())
             return Inverse(Produit(nouveau_denominateur))
         
         ## Sinon, on prépare le numérateur final, et on renvoie la fraction (expression numérateur)/(expression dénominateur)
-        numerateur_final: Objet = nouveau_numerateurs[0] if len(nouveau_numerateurs) == 1 else Produit(nouveau_numerateurs)
-        print("Simplifie (Prod/Frac) ", objet_initial, " => ", Frac(Produit(nouveau_numerateurs), Produit(nouveau_denominateur)))
+        numerateur_final: Objet = nouveau_numerateurs[0] if len(nouveau_numerateurs) == 1 else Produit(nouveau_numerateurs).simplifie()
+        print("Simplifie (Prod/Frac) ", objet_initial, " => ", Frac(numerateur_final, denominateur_final))
         return Frac(numerateur_final, denominateur_final)
     
 def aux_simplify_produit(prod: 'Produit', p_objs: list['Objet']) -> 'Objet':
@@ -489,8 +490,10 @@ class Oppose(Objet):
     def simplifie(self) -> Objet:
         obj = self.o.simplifie()
         if type(obj) is Oppose:
-            print("Simplifie (Oppose) ", self, " => ", obj.o)
-            return obj.o
+            while type(obj) is Oppose:
+                obj = obj.o
+            print("Simplifie (Oppose) ", self, " => ", obj)
+            return obj
         elif type(obj) is Produit:
             if type(obj.objs[0]) is Reel and obj.objs[0] < 0:
                 return Produit([-1]+obj.objs).simplifie()
@@ -565,6 +568,7 @@ class Somme(Objet):
                     else:
                         sobjs[o] = o.objs[0].valeur
                     continue
+
             if type(o) is Oppose:
                 no = o.o.simplifie()
                 if no in sobjs:
