@@ -195,7 +195,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
 
         ## Si le numérateur est égal à 1, on renvoie juste l'inverse du dénominateur
         if len(nouveau_numerateurs) == 0 or nouveau_numerateurs == [1]:
-            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Inverse(Produit(nouveau_denominateur)).simplifie())
+            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Inverse(Produit(nouveau_denominateur)))
             return Inverse(Produit(nouveau_denominateur))
         
         ## Sinon, on prépare le numérateur final, et on renvoie la fraction (expression numérateur)/(expression dénominateur)
