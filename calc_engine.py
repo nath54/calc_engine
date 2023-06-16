@@ -40,100 +40,134 @@ def complete_string_with_white_spaces(s: str, t: int):
         return s + " "*(t-len(s))
     
 
-def aux_simplify_produit_et_frac(obj: 'Objet', p_objs: list['Objet']) -> 'Objet':
-    # On rassemble les produits entre eux, on simplifie les objets, et on teste le produit nul
+def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list['Objet']) -> 'Objet':
+    """
+        Arguments:
+            - objet_initial = Objet du produit ou de la fraction que l'on souhaite simplifier, ne sert que pour l'affichage
+            - objets_du_produit = liste des objets du produit qu'il faut simplifier entre eux
+    """
+    # On va ici décomposer les sous_produits et les sous_fractions pour tout mettre au même niveau
     signe: int = 1
-    objs: list[Objet] = []
-    for o in p_objs:
-        o = o.simplifie()
-        if type(o) == Produit:
-            objs += o.objs
-        elif type(o) == Frac:
-            num = o.numerateur
-            if type(num) == Produit:
-                objs += num.objs
-            else:
-                objs.append(num)
-            #
-            denom = o.numerateur
-            if type(denom) == Produit:
-                objs += [Inverse(oo) for oo in denom.objs]
-            else:
-                objs.append(Inverse(denom))
-        elif type(o) == Inverse:
-            if type(o.obj) == Produit:
-                objs += [Inverse(oo) for oo in o.obj.objs]
-            else:
-                objs.append(o)
-        elif type(o) == Oppose:
+    objets_decomposes: list[Objet] = []
+    # Boucle de décomposition
+    for objet in objets_du_produit:
+        # On simplifie d'abord l'objet
+        objet_simplifie = objet.simplifie()
+        
+        # Et on va donc tester les différents cas possibles
+        ### Cas où l'objet est un opposé de la forme -(expression) ###
+        while type(objet_simplifie) is Oppose:
+            # On va exporter le signe, et retraiter l'objet
             signe *= -1
-            objs.append(o.o)
-        elif o == 0:
-            print("Simplifie (Prod/Frac) ", obj, " => ", Reel(0))
+            objet_simplifie = objet_simplifie.o
+        ### Cas où l'objet est un produit ###
+        if type(objet_simplifie) is Produit:
+            objets_decomposes += objet_simplifie.objs
+        ### Cas où l'objet est une fraction ###
+        elif type(objet_simplifie) is Frac:
+            ## On traite le numérateur ##
+            numerateur = objet_simplifie.numerateur
+            # Si le numérateur n'est qu'un simple produit, on va pouvoir directement le mettre en produit avec les éléments au premier niveau
+            if type(numerateur) is Produit:
+                objets_decomposes += numerateur.objs
+            # Sinon, on ne peux pas simplifier plus que cela le produit avec le numérateur de la fraction
+            else:
+                objets_decomposes.append(numerateur)
+            ## On traite le dénominateur ##
+            denominateur = objet_simplifie.denominateur
+            # Si le dénominateur est un produit, on va pouvoir le décomposer et appliquer la formule `1/(a*b) = 1/a * 1/b)`
+            if type(denominateur) is Produit:
+                objets_decomposes += [Inverse(sous_objet) for sous_objet in denominateur.objs]
+            # Sinon, on ne peux pas simplifier plus que ça
+            else:
+                objets_decomposes.append(Inverse(denominateur))
+        ### Cas où l'objet est in inverse de la forme (1/expression) ###
+        elif type(objet_simplifie) is Inverse:
+            # Si le dénominateur est un produit, on va pouvoir le décomposer et appliquer la formule `1/(a*b) = 1/a * 1/b)`
+            if type(objet_simplifie.obj) is Produit:
+                objets_decomposes += [Inverse(so) for so in objet_simplifie.obj.objs]
+            # Sinon, on ne peux pas simplifier plus que ça
+            else:
+                objets_decomposes.append(objet_simplifie)
+        ### Cas où l'objet serait nul ###
+        elif objet_simplifie == 0:
+            # On va pouvoir simplifier très facilement, car toute multiplication avec 0 est égale à 0
+            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(0))
             return Reel(0)
+        ### Cas où l'on a juste affaire à un objet général, sans plus de précisions ###
         else:
-            objs.append(o)
-    # pré-tri
-    prod_rls: Reel = Reel(signe)
-    sobjs: dict[Objet, Objet] = {}
-    #
-    for o in objs:
-        if type(o) == Reel:
-            prod_rls *= o
-        elif type(o) == Puissance:
-            if o.obj in sobjs:
-                sobjs[o.obj].append(o.exposant)
+            # On ne peux donc pas simplifier plus que ça
+            objets_decomposes.append(objet_simplifie)
+
+    # On va rassembler tous les réels ici pour pouvoir directement simplifier en un produit de réels
+    produit_des_nombres_reels: Reel = Reel(signe)
+    # On va rassembler ici tous les objets et regrouper les mêmes bases sous une puissance 
+    objets_par_puissance: dict[Objet, Objet] = {}
+    
+    # On va donc parcourir tous les objets qui ont été décomposés précédemment
+    for objet in objets_decomposes:
+        # On va donc traiter les différents cas possibles, on a déjà une première hypothèse, qui serait qu'aucun objet ne serait nul
+
+        ### Cas où l'objet est un réel ###
+        if type(objet) is Reel:
+            produit_des_nombres_reels *= objet
+        ### Cas où l'objet serait déjà une puissance ###
+        elif type(objet) is Puissance:
+            if objet.obj in objets_par_puissance:
+                objets_par_puissance[objet.obj].append(objet.exposant)
             else:
-                sobjs[o.obj] = [o.exposant]
-        elif type(o) == Inverse:
-            if o.obj in sobjs:
-                sobjs[o.obj].append(Reel(-1))
+                objets_par_puissance[objet.obj] = [objet.exposant]
+        ### Cas où l'objet est un inverse ###
+        elif type(objet) is Inverse:
+            if objet.obj in objets_par_puissance:
+                objets_par_puissance[objet.obj].append(Reel(-1))
             else:
-                sobjs[o.obj] = [Reel(-1)]
+                objets_par_puissance[objet.obj] = [Reel(-1)]
+        ### Cas où l'objet est un objet général, sans plus d'informations que cela ###
         else:
-            if o in sobjs:
-                sobjs[o].append(Reel(1))
+            if objet in objets_par_puissance:
+                objets_par_puissance[objet].append(Reel(1))
             else:
-                sobjs[o] = [Reel(1)]
-    ##
-    new_nums = []
-    new_denoms = []
+                objets_par_puissance[objet] = [Reel(1)]
     #
-    if prod_rls == 0:
-        print("Simplifie (Prod/Frac) ", obj, " => ", Reel(0))
+    nouveau_numerateurs = []
+    nouveau_denominateur = []
+    #
+    if produit_des_nombres_reels == 0:
+        print("Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(0))
         return Reel(0)
-    elif prod_rls!=1:
-        new_nums.append(prod_rls)
+    elif produit_des_nombres_reels!=1:
+        nouveau_numerateurs.append(produit_des_nombres_reels)
     #
-    for ko in sobjs.keys():
-        sko = Somme(sobjs[ko]).simplifie()
-        if sko == 1:
-            new_nums.append(ko)
-        elif sko == -1:
-            new_denoms.append(ko)
-        elif type(sko) == Reel and sko < 0:
-            new_denoms.append(Puissance(ko, -sko.value).simplifie())
+    for base_objet in objets_par_puissance.keys():
+        somme_puissances_de_base_objet = Somme(objets_par_puissance[base_objet]).simplifie()
+        if somme_puissances_de_base_objet == 1:
+            nouveau_numerateurs.append(base_objet)
+        elif somme_puissances_de_base_objet == -1:
+            nouveau_denominateur.append(base_objet)
+        elif type(somme_puissances_de_base_objet) is Reel and somme_puissances_de_base_objet < 0:
+            nouveau_denominateur.append(Puissance(base_objet, -somme_puissances_de_base_objet.value).simplifie())
         else:
-            new_nums.append(Puissance(ko, sko).simplifie())
+            nouveau_numerateurs.append(Puissance(base_objet, somme_puissances_de_base_objet).simplifie())
     #
-    if len(new_denoms) == 0:
-        if len(new_nums) == 0:
-            print("Simplifie (Prod/Frac) ", obj, " => ", Reel(1))
+    if len(nouveau_denominateur) == 0:
+        if len(nouveau_numerateurs) == 0:
+            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(1))
             return Reel(1)
-        elif len(new_nums) == 1:
-            print("Simplifie (Prod/Frac) ", obj, " => ", new_nums[0])
-            return new_nums[0]
+        elif len(nouveau_numerateurs) == 1:
+            print("Simplifie (Prod/Frac) ", objet_initial, " => ", nouveau_numerateurs[0])
+            return nouveau_numerateurs[0]
         else:
-            print("Simplifie (Prod/Frac) ", obj, " => ", Produit(new_nums))
-            return Produit(new_nums)
+            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Produit(nouveau_numerateurs))
+            return Produit(nouveau_numerateurs)
     else:
-        denom: Objet = new_denoms[0] if len(new_denoms) == 1 else Produit(new_denoms)
-        if len(new_nums) == 0 or new_nums == [1]:
-            print("Simplifie (Prod/Frac) ", obj, " => ", Inverse(Produit(new_denoms)))
-            return Inverse(Produit(new_denoms))
-        num: Objet = new_nums[0] if len(new_nums) == 1 else Produit(new_nums)
-        print("Simplifie (Prod/Frac) ", obj, " => ", Frac(Produit(new_nums), Produit(new_denoms)))
-        return Frac(num, denom)
+        denominateur_final: Objet = nouveau_denominateur[0] if len(nouveau_denominateur) == 1 else Produit(nouveau_denominateur)
+        if len(nouveau_numerateurs) == 0 or nouveau_numerateurs == [1]:
+            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Inverse(Produit(nouveau_denominateur)))
+            return Inverse(Produit(nouveau_denominateur))
+        numerateur_final: Objet = nouveau_numerateurs[0] if len(nouveau_numerateurs) == 1 else Produit(nouveau_numerateurs)
+        print("Simplifie (Prod/Frac) ", objet_initial, " => ", Frac(Produit(nouveau_numerateurs), Produit(nouveau_denominateur)))
+        return Frac(numerateur_final, denominateur_final)
     
 def aux_simplify_produit(prod: 'Produit', p_objs: list['Objet']) -> 'Objet':
     return aux_simplify_produit_et_frac(prod, p_objs)
@@ -164,7 +198,7 @@ class Objet():
         return self.__repr__().__hash__()
 
     def __eq__(self, __value: object) -> bool:
-        if type(__value) == Objet:
+        if type(__value) is Objet:
             return self.__repr__() == __value.__repr__()
         else:
             return False
@@ -202,73 +236,73 @@ class Reel(Objet):
         return self.__repr__().__hash__()
     
     def __add__(self, r) -> 'Reel':
-        if type(r) == Reel:
+        if type(r) is Reel:
             return Reel(self.valeur+r.valeur)
-        elif type(r) == float or type(r) == int:
+        elif type(r) is float or type(r) is int:
             return Reel(self.valeur+r)
         else:
             raise UserWarning("Erreur de typage !", r, type(r))
 
     def __mul__(self, r) -> 'Reel':
-        if type(r) == Reel:
+        if type(r) is Reel:
             return Reel(self.valeur*r.valeur)
-        elif type(r) == float or type(r) == int:
+        elif type(r) is float or type(r) is int:
             return Reel(self.valeur*r)
         else:
             raise UserWarning("Erreur de typage !", r, type(r))
     
     def __sub__(self, r) -> 'Reel':
-        if type(r) == Reel:
+        if type(r) is Reel:
             return Reel(self.valeur-r.valeur)
-        elif type(r) == float or type(r) == int:
+        elif type(r) is float or type(r) is int:
             return Reel(self.valeur-r)
         else:
             raise UserWarning("Erreur de typage !", r, type(r))
     
     def __pow__(self, r) -> 'Reel':
-        if type(r) == Reel:
+        if type(r) is Reel:
             return Reel(self.valeur**r.valeur)
-        elif type(r) == float or type(r) == int:
+        elif type(r) is float or type(r) is int:
             return Reel(self.valeur**r)
         else:
             raise UserWarning("Erreur de typage !", r, type(r))
     
     def __eq__(self, r) -> bool:
-        if type(r) == Reel:
+        if type(r) is Reel:
             return self.valeur == r.valeur
-        elif type(r) == float or type(r) == int:
+        elif type(r) is float or type(r) is int:
             return self.valeur == r
         else:
             return False
 
     def __gt__(self, r) -> bool:
-        if type(r) == Reel:
+        if type(r) is Reel:
             return self.valeur > r.valeur
-        elif type(r) == float or type(r) == int:
+        elif type(r) is float or type(r) is int:
             return self.valeur > r
         else:
             raise UserWarning("Erreur de typage !", r, type(r))
     
     def __lt__(self, r) -> bool:
-        if type(r) == Reel:
+        if type(r) is Reel:
             return self.valeur < r.valeur
-        elif type(r) == float or type(r) == int:
+        elif type(r) is float or type(r) is int:
             return self.valeur < r
         else:
             raise UserWarning("Erreur de typage !", r, type(r))
     
     def __geq__(self, r) -> bool:
-        if type(r) == Reel:
+        if type(r) is Reel:
             return self.valeur >= r.valeur
-        elif type(r) == float or type(r) == int:
+        elif type(r) is float or type(r) is int:
             return self.valeur >= r
         else:
             raise UserWarning("Erreur de typage !", r, type(r))
     
     def __leq__(self, r) -> bool:
-        if type(r) == Reel:
+        if type(r) is Reel:
             return self.valeur <= r.valeur
-        elif type(r) == float or type(r) == int:
+        elif type(r) is float or type(r) is int:
             return self.valeur <= r
         else:
             raise UserWarning("Erreur de typage !", r, type(r))
@@ -313,7 +347,7 @@ class Variable(Objet):
         return self.nom
     
     def __eq__(self, v) -> bool:
-        if v is Variable:
+        if type(v) is Variable:
             return v.nom == self.nom
         return False
 
@@ -418,15 +452,15 @@ class Oppose(Objet):
 
     def simplifie(self) -> Objet:
         obj = self.o.simplifie()
-        if type(obj) == Oppose:
+        if type(obj) is Oppose:
             print("Simplifie (Oppose) ", self, " => ", obj.o)
             return obj.o
-        elif type(obj) == Produit:
-            if type(obj.objs[0]) == Reel and obj.objs[0] < 0:
+        elif type(obj) is Produit:
+            if type(obj.objs[0]) is Reel and obj.objs[0] < 0:
                 return Produit([-1]+obj.objs).simplifie()
             else:
                 return Oppose(obj)
-        elif type(obj) == Reel:
+        elif type(obj) is Reel:
             print("Simplifie (Oppose) ", self, " => ", Reel(-obj.valeur))
             return Reel(-obj.valeur)
         else:
@@ -448,7 +482,7 @@ class Somme(Objet):
         txt = "("
         for i in range(len(self.objs)):
             if i != 0:
-                if type(self.objs[i]) == Oppose:
+                if type(self.objs[i]) is Oppose:
                     txt += " "
                 else:
                     txt += " + "
@@ -466,29 +500,36 @@ class Somme(Objet):
             return Reel(0)
     
     def simplifie(self) -> Objet:
+        # print("\nDEBUG : SIMPLIFICATION DE SOMME\n")
         # On rassemble les sommes entre elles
+        nobjs = []
         for o in self.objs:
-            if o is Somme:
+            # print("L'élément ", o, " est dans la somme, et est de type ", type(o), "\n")
+            if type(o) is Somme:
+                # print("Sous-Somme détectée", o)
                 o = o.simplifie()
-                self.objs.remove(o)
-                self.objs.extend(o.objs)
+                nobjs.extend(o.objs)
+            else:
+                nobjs.append(o)
+        #
+        self.objs = nobjs
         # pré-tri
         sum_rls = Reel(0)
         sobjs = {}
         #
         for o in self.objs:
             o = o.simplifie()
-            if type(o) == Reel:
+            if type(o) is Reel:
                 sum_rls += o
                 continue
-            if type(o) == Produit:
-                if len(o.objs) == 2 and type(o.objs[0]) == Reel:
+            if type(o) is Produit:
+                if len(o.objs) == 2 and type(o.objs[0]) is Reel:
                     if o in sobjs:
                         sobjs[o] += o.objs[0].valeur
                     else:
                         sobjs[o] = o.objs[0].valeur
                     continue
-            if type(o) == Oppose:
+            if type(o) is Oppose:
                 no = o.o.simplifie()
                 if no in sobjs:
                     sobjs[no] -= 1
@@ -617,17 +658,17 @@ class Inverse(Objet):
     def simplifie(self) -> Objet:        
         obj = self.obj.simplifie()
         opp = False
-        if type(obj) == Oppose:
+        if type(obj) is Oppose:
             opp = True
             obj = obj.o
-        if type(obj) == Inverse:
+        if type(obj) is Inverse:
             if opp:
                 print("Simplifie (Inverse) ", self, " => ", Oppose(obj.obj))
                 return Oppose(obj.obj)
             else:
                 print("Simplifie (Inverse) ", self, " => ", obj.obj)
                 return obj.obj
-        if type(obj) == Frac:
+        if type(obj) is Frac:
             if opp:
                 print("Simplifie (Inverse) ", self, " => ", Oppose(obj.inverse()))
                 return Oppose(obj.inverse())
@@ -670,15 +711,6 @@ class Frac(Objet):
         num = self.numerateur.simplifie()
         denom = self.denominateur.simplifie()
         return aux_simplify_frac(self, num, denom)
-        # if num == denom or num.__repr__() == denom.__repr__():
-        #     print("Simplifie (Frac, 1) ", self, " => ", Reel(1))
-        #     return Reel(1)
-        # elif denom == 1:!
-        #     print("Simplifie (Frac, 2) ", self, " => ", num)
-        #     return num
-        # else:
-        #     print("Simplifie (Frac, 3) ", self, " => ", Frac(num, denom), ",  type(num) : ", type(num), ",  type(denom) : ", type(denom), ",  repr(num) : ", num.__repr__(), ",  repr(denom) : ", denom.__repr__() )
-        #     return Frac(num, denom)
 
 class Ln(Fonction):
     def __init__(self, f: Objet):
@@ -749,7 +781,7 @@ class Puissance(Objet):
 class Polynome(Objet):
     def __init__(self, coefs:dict[int, Objet], var: Variable):
         assert all([not coef.depends_of_var(var) for coef in coefs.values()]), "Les coefficients d'un polynôme ne peuvent pas dépendre de sa variable !"
-        assert all([(type(d) == int and d >= 0) for d in coefs.keys()]), "Les degrés doivent êtres des entiers positifs !"
+        assert all([(type(d) is int and d >= 0) for d in coefs.keys()]), "Les degrés doivent êtres des entiers positifs !"
         #
         super().__init__(nom=None)
         #
