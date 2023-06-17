@@ -40,7 +40,7 @@ def complete_string_with_white_spaces(s: str, t: int):
     else:
         return s + " "*(t-len(s))
 
-def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list['Objet']) -> 'Objet':
+def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list['Objet'], base_print: str = "") -> 'Objet':
     """
         Arguments:
             - objet_initial = Objet du produit ou de la fraction que l'on souhaite simplifier, ne sert que pour l'affichage
@@ -53,7 +53,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
     # Boucle de décomposition
     for objet in objets_du_produit:
         # On simplifie d'abord l'objet
-        objet_simplifie = objet.simplifie()
+        objet_simplifie = objet.simplifie(base_print+"  ")
         
         # Et on va donc tester les différents cas possibles
         ### Cas où l'objet est un opposé de la forme -(expression) ###
@@ -65,7 +65,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
         ### Cas où l'objet serait nul ###
         if objet_simplifie == 0:
             # On va pouvoir simplifier très facilement, car toute multiplication avec 0 est égale à 0
-            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(0))
+            print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(0))
             return Reel(0)
         ### Cas où l'objet est un produit ###
         elif type(objet_simplifie) is Produit:
@@ -146,7 +146,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
 
     # Si on a une multiplication par 0, on simplifie
     if produit_des_nombres_reels == 0:
-        print("Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(0))
+        print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(0))
         return Reel(0)
     # Sinon, si les réels ne se simplifient pas, on les ajoute au numérateur
     elif produit_des_nombres_reels!=1:
@@ -155,7 +155,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
     # On va parcourir tous les objets que l'on avait trié par base égale
     for base_objet in objets_par_puissance.keys():
         # On simplifie l'expression de la somme des puissances
-        somme_puissances_de_base_objet = Somme(objets_par_puissance[base_objet]).simplifie()
+        somme_puissances_de_base_objet = Somme(objets_par_puissance[base_objet]).simplifie(base_print+"  ")
 
         # a^1 = a
         if somme_puissances_de_base_objet == 1:
@@ -165,49 +165,49 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
             nouveau_denominateur.append(base_objet)
         # Si l'exposant est réel négatif, on ajoute l'élément au dénominateur
         elif type(somme_puissances_de_base_objet) is Reel and somme_puissances_de_base_objet < 0:
-            nouveau_denominateur.append(Puissance(base_objet, -somme_puissances_de_base_objet.value).simplifie())
+            nouveau_denominateur.append(Puissance(base_objet, -somme_puissances_de_base_objet.value).simplifie(base_print+"  "))
         # Sinon, on ajoute l'élément au numérateur
         else:
-            nouveau_numerateurs.append(Puissance(base_objet, somme_puissances_de_base_objet).simplifie())
+            nouveau_numerateurs.append(Puissance(base_objet, somme_puissances_de_base_objet).simplifie(base_print+"  "))
 
     # On va maintenant finir en détectant plusieurs cas
     ### Cas où le dénominateur est vide ###
     if len(nouveau_denominateur) == 0 or nouveau_denominateur == [1]:
         ## 1/1 = 1
         if len(nouveau_numerateurs) == 0:
-            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(1))
+            print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(1))
             return Reel(1)
         
         ## (a)/1 = a
         elif len(nouveau_numerateurs) == 1:
-            print("Simplifie (Prod/Frac) ", objet_initial, " => ", nouveau_numerateurs[0])
+            print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", nouveau_numerateurs[0])
             return nouveau_numerateurs[0]
         
         ## (expr)/1 = expr
         else:
-            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Produit(nouveau_numerateurs))
+            print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Produit(nouveau_numerateurs))
             return Produit(nouveau_numerateurs)
 
     ### Cas où le dénominateur n'est pas vide ###
     else:
         # On prépare le dénominateur final
-        denominateur_final: Objet = nouveau_denominateur[0] if len(nouveau_denominateur) == 1 else Produit(nouveau_denominateur).simplifie()
+        denominateur_final: Objet = nouveau_denominateur[0] if len(nouveau_denominateur) == 1 else Produit(nouveau_denominateur).simplifie(base_print+"  ")
 
         ## Si le numérateur est égal à 1, on renvoie juste l'inverse du dénominateur
         if len(nouveau_numerateurs) == 0 or nouveau_numerateurs == [1]:
-            print("Simplifie (Prod/Frac) ", objet_initial, " => ", Inverse(Produit(nouveau_denominateur)))
+            print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Inverse(Produit(nouveau_denominateur)))
             return Inverse(Produit(nouveau_denominateur))
         
         ## Sinon, on prépare le numérateur final, et on renvoie la fraction (expression numérateur)/(expression dénominateur)
-        numerateur_final: Objet = nouveau_numerateurs[0] if len(nouveau_numerateurs) == 1 else Produit(nouveau_numerateurs).simplifie()
-        print("Simplifie (Prod/Frac) ", objet_initial, " => ", Frac(numerateur_final, denominateur_final))
+        numerateur_final: Objet = nouveau_numerateurs[0] if len(nouveau_numerateurs) == 1 else Produit(nouveau_numerateurs).simplifie(base_print+"  ")
+        print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Frac(numerateur_final, denominateur_final))
         return Frac(numerateur_final, denominateur_final)
     
-def aux_simplify_produit(prod: 'Produit', p_objs: list['Objet']) -> 'Objet':
-    return aux_simplify_produit_et_frac(prod, p_objs)
+def aux_simplify_produit(prod: 'Produit', p_objs: list['Objet'], base_print: str = "") -> 'Objet':
+    return aux_simplify_produit_et_frac(prod, p_objs, base_print)
     
-def aux_simplify_frac(frac: 'Frac', f_num: 'Objet', f_denom: 'Objet') -> 'Objet':
-    return aux_simplify_produit_et_frac(frac, [f_num, Inverse(f_denom).simplifie()])
+def aux_simplify_frac(frac: 'Frac', f_num: 'Objet', f_denom: 'Objet', base_print) -> 'Objet':
+    return aux_simplify_produit_et_frac(frac, [f_num, Inverse(f_denom).simplifie(base_print+"  ")], base_print)
     
 
 """ Elements atomiques """
@@ -253,8 +253,8 @@ class Objet():
     def derive(self, var: 'Variable') -> 'Objet':
         return Reel(0)
     
-    def simplifie(self) -> 'Objet':
-        print("Simplifie (Objet) ", self, " => ", self)
+    def simplifie(self, base_print: str = "") -> 'Objet':
+        print(base_print, "Simplifie (Objet) ", self, " => ", self)
         return self
 
 
@@ -365,8 +365,8 @@ class Reel(Objet):
     def derive(self, var: 'Variable') -> Objet:
         return Reel(0)
     
-    def simplifie(self) -> Objet:
-        print("Simplifie (Réel) ", self, " => ", self)
+    def simplifie(self, base_print: str = "") -> Objet:
+        print(base_print, "Simplifie (Réel) ", self, " => ", self)
         return self
 
 
@@ -400,8 +400,8 @@ class Variable(Objet):
         else:
             return Reel(0)
     
-    def simplifie(self) -> Objet:
-        print("Simplifie (Variable) ", self, " => ", self)
+    def simplifie(self, base_print: str = "") -> Objet:
+        print(base_print, "Simplifie (Variable) ", self, " => ", self)
         return self
 
 
@@ -417,8 +417,8 @@ class Fonction(Objet):
     def derive(self, var: Variable):
         return Derivee(nom=None, fct=self, var=var)
     
-    def simplifie(self) -> Objet:
-        print("Simplifie (Fonction) ", self, " => ", self)
+    def simplifie(self, base_print: str = "") -> Objet:
+        print(base_print, "Simplifie (Fonction) ", self, " => ", self)
         return self
     
 
@@ -487,23 +487,23 @@ class Oppose(Objet):
     def derive(self, var: Variable) -> Objet:
         return Oppose(self.o.derive(var))
 
-    def simplifie(self) -> Objet:
-        obj = self.o.simplifie()
+    def simplifie(self, base_print: str = "") -> Objet:
+        obj = self.o.simplifie(base_print+"  ")
         if type(obj) is Oppose:
             while type(obj) is Oppose:
                 obj = obj.o
-            print("Simplifie (Oppose) ", self, " => ", obj)
+            print(base_print, "Simplifie (Oppose) ", self, " => ", obj)
             return obj
         elif type(obj) is Produit:
             if type(obj.objs[0]) is Reel and obj.objs[0] < 0:
-                return Produit([-1]+obj.objs).simplifie()
+                return Produit([-1]+obj.objs).simplifie(base_print+"  ")
             else:
                 return Oppose(obj)
         elif type(obj) is Reel:
-            print("Simplifie (Oppose) ", self, " => ", Reel(-obj.valeur))
+            print(base_print, "Simplifie (Oppose) ", self, " => ", Reel(-obj.valeur))
             return Reel(-obj.valeur)
         else:
-            print("Simplifie (Oppose) ", self, " => ", Oppose(obj))
+            print(base_print, "Simplifie (Oppose) ", self, " => ", Oppose(obj))
             return Oppose(obj)
         
 
@@ -538,7 +538,7 @@ class Somme(Objet):
         else:
             return Reel(0)
     
-    def simplifie(self) -> Objet:
+    def simplifie(self, base_print: str = "") -> Objet:
         # print("\nDEBUG : SIMPLIFICATION DE SOMME\n")
         # On rassemble les sommes entre elles
         nobjs = []
@@ -546,7 +546,7 @@ class Somme(Objet):
             # print("L'élément ", o, " est dans la somme, et est de type ", type(o), "\n")
             if type(o) is Somme:
                 # print("Sous-Somme détectée", o)
-                o = o.simplifie()
+                o = o.simplifie(base_print+"  ")
                 nobjs.extend(o.objs)
             else:
                 nobjs.append(o)
@@ -557,7 +557,7 @@ class Somme(Objet):
         sobjs = {}
         #
         for o in self.objs:
-            o = o.simplifie()
+            o = o.simplifie(base_print+"  ")
             if type(o) is Reel:
                 sum_rls += o
                 continue
@@ -570,7 +570,7 @@ class Somme(Objet):
                     continue
 
             if type(o) is Oppose:
-                no = o.o.simplifie()
+                no = o.o.simplifie(base_print+"  ")
                 if no in sobjs:
                     sobjs[no] -= 1
                 else:
@@ -633,8 +633,8 @@ class Soustraction(Objet):
         else:
             return Reel(0)
         
-    def simplifie(self) -> 'Objet':
-        return Somme([self.o1, Oppose(self.o2)]).simplifie()
+    def simplifie(self, base_print: str = "") -> 'Objet':
+        return Somme([self.o1, Oppose(self.o2)]).simplifie(base_print+"  ")
 
 
 class Produit(Objet):
@@ -671,8 +671,8 @@ class Produit(Objet):
         #
         return Produit([Produit(autres), Somme(derivees)])
     
-    def simplifie(self) -> Objet:
-        return aux_simplify_produit(self, self.objs)
+    def simplifie(self, base_print: str = "") -> Objet:
+        return aux_simplify_produit(self, self.objs, base_print)
 
 class Inverse(Objet):
     def __init__(self, obj: Objet):
@@ -695,8 +695,8 @@ class Inverse(Objet):
         #
         return Frac(Oppose(self.obj.derive(var)), Puissance(self.obj, 2))
     
-    def simplifie(self) -> Objet:        
-        obj = self.obj.simplifie()
+    def simplifie(self, base_print: str = "") -> Objet:        
+        obj = self.obj.simplifie(base_print+"  ")
         opp = False
         if type(obj) is Oppose:
             opp = True
@@ -747,10 +747,10 @@ class Frac(Objet):
     def inverse(self) -> 'Frac':
         return Frac(self.denominateur, self.numerateur)
 
-    def simplifie(self) -> Objet:
-        num = self.numerateur.simplifie()
-        denom = self.denominateur.simplifie()
-        return aux_simplify_frac(self, num, denom)
+    def simplifie(self, base_print: str = "") -> Objet:
+        num = self.numerateur.simplifie(base_print+"  ")
+        denom = self.denominateur.simplifie(base_print+"  ")
+        return aux_simplify_frac(self, num, denom, base_print)
 
 class Ln(Fonction):
     def __init__(self, f: Objet):
@@ -797,9 +797,9 @@ class Puissance(Objet):
             if not self.exposant.depends_of_var(var):
                 return Produit([self.exposant, self.obj.derive(var), Puissance(self.obj, Soustraction(self.exposant, Reel(1)))])
 
-    def simplifie(self) -> Objet:
-        obj = self.obj.simplifie()
-        exposant = self.exposant.simplifie()
+    def simplifie(self, base_print: str = "") -> Objet:
+        obj = self.obj.simplifie(base_print+"  ")
+        exposant = self.exposant.simplifie(base_print+"  ")
         #
         if obj == 1:
             print("Simplifie (Puissance) ", self, " => ", Reel(1))
@@ -870,7 +870,7 @@ class Polynome(Objet):
                 new_coefs[d] = self.coefficients[d].derive(var)
             return Polynome(new_coefs).simplifie()
 
-    def simplifie(self) -> Objet:
+    def simplifie(self, base_print: str = "") -> Objet:
         new_coefs = {}
         for d in self.coefficients.keys():
             coef = self.coefficients[d].simplie()
