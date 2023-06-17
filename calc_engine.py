@@ -115,6 +115,9 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
             # On ne peux donc pas simplifier plus que ça
             objets_decomposes.append(objet_simplifie)
 
+    if DEBUG_SIMPLIFIE: 
+        print(base_print, "Objets Décomposés : ", objets_decomposes)
+
     # On va rassembler tous les réels ici pour pouvoir directement simplifier en un produit de réels
     produit_des_nombres_reels: Reel = Reel(signe)
     if DEBUG_SIMPLIFIE: print(f"{base_print}produit des nombres réels initial : ", produit_des_nombres_reels)
@@ -127,7 +130,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
         # On va donc traiter les différents cas possibles, on a déjà une première hypothèse, qui serait qu'aucun objet ne serait nul
 
         ### Cas où l'objet est un réel ###
-        if type(objet) is Reel:
+        if type(objet) is Reel or type(objet) in [int, float]:
             produit_des_nombres_reels *= objet
             if DEBUG_SIMPLIFIE: print(f"{base_print}Un réel a été détecté : ", objet, "nouveau produit des nombres réels : ", produit_des_nombres_reels)
     
@@ -151,6 +154,10 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
                 objets_par_puissance[objet].append(Reel(1))
             else:
                 objets_par_puissance[objet] = [Reel(1)]
+
+    if DEBUG_SIMPLIFIE:
+        print(base_print, "Produits des nombres réels : ", produit_des_nombres_reels)
+        print(base_print, "Objets par puissance : ", objets_par_puissance)
 
     # On va ici trier les éléments qui seront au dénominateur et ceux qui seront au numérateur
     nouveau_numerateurs = []
@@ -631,78 +638,78 @@ class Somme(Objet):
         if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
 
         # On décompose les éléments de la somme, notamment pour mettre au même niveau les sous-sommes
-        nobjs = []
+        objets_decomposes = []
         for objet in self.objs:
             # print("L'élément ", o, " est dans la somme, et est de type ", type(o), "\n")
             if type(objet) is Somme:
                 # print("Sous-Somme détectée", o)
-                objet = objet.simplifie(base_print+"  ")
-                nobjs.extend(objet.objs)
+                objet_simplifie = objet.simplifie(base_print+"  ")
+                objets_decomposes.extend(objet_simplifie.objs)
             else:
-                nobjs.append(objet)
-        self.objs = nobjs
+                objets_decomposes.append(objet)
+        #
         # On sépare les réels
         somme_reels = Reel(0)
-        sobjs = {}
+        objets_factorises = {}
         # On va essayer de factoriser les éléments de même base entre eux
         for objet in self.objs:
-            objet = objet.simplifie(base_print+"  ")
+            objet_simplifie = objet.simplifie(base_print+"  ")
             # On traite les différents cas possibles
             ### Cas où l'élément est un Réel ###
-            if type(objet) is Reel:
-                somme_reels += objet
-            elif type(objet) in [int, float]:
-                somme_reels += objet
+            if type(objet_simplifie) is Reel:
+                somme_reels += objet_simplifie
+            elif type(objet_simplifie) in [int, float]:
+                somme_reels += objet_simplifie
             ### Cas où l'élément est un produit du type (réel * obj) ###
-            elif type(objet) is Produit:
-                if len(objet.objs) == 2 and type(objet.objs[0]) is Reel:
-                    if objet in sobjs:
-                        sobjs[objet] += objet.objs[0].valeur
+            elif type(objet_simplifie) is Produit:
+                if len(objet_simplifie.objs) == 2 and type(objet_simplifie.objs[0]) is Reel:
+                    if objet_simplifie in objets_factorises:
+                        objets_factorises[objet_simplifie] += objet_simplifie.objs[0].valeur
                     else:
-                        sobjs[objet] = objet.objs[0].valeur
+                        objets_factorises[objet_simplifie] = objet_simplifie.objs[0].valeur
             ### Cas où l'élément est un opposé ###
-            elif type(objet) is Oppose:
-                no = objet.o.simplifie(base_print+"  ")
-                if no in sobjs:
-                    sobjs[no] -= 1
+            elif type(objet_simplifie) is Oppose:
+                objet_oppose = objet_simplifie.o.simplifie(base_print+"  ")
+                if objet_oppose in objets_factorises:
+                    objets_factorises[objet_oppose] -= 1
                 else:
-                    sobjs[no] = -1
+                    objets_factorises[objet_oppose] = -1
             ### Sinon, si il n'y a pas d'autres simplifications possibles ###
             else:
-                if objet in sobjs:
-                    sobjs[objet] += 1
+                if objet_simplifie in objets_factorises:
+                    objets_factorises[objet_simplifie] += 1
                 else:
-                    sobjs[objet] = 1
+                    objets_factorises[objet_simplifie] = 1
         
         # On va maintenant re-regrouper les éléments de la somme entre eux
-        new_objs = []
+        nouveaux_objets_finaux = []
         #
         if somme_reels != 0:
-            new_objs.append(somme_reels)
+            nouveaux_objets_finaux.append(somme_reels)
         #
-        for ko in sobjs.keys():
+        for base_objet in objets_factorises.keys():
             # Il y a plusieurs petites simplifications possibles
             ### Si il y a un facteur 0 ###
-            if sobjs[ko] == 0:
+            if objets_factorises[base_objet] == 0:
                 continue
             ### Si il y a un facteur 1 ###
-            elif sobjs[ko] == 1:
-                new_objs.append(ko)
+            elif objets_factorises[base_objet] == 1:
+                nouveaux_objets_finaux.append(base_objet)
             ### Si il y a un facteur -1 ###
-            elif sobjs[ko] == -1:
-                new_objs.append(Oppose(ko))
+            elif objets_factorises[base_objet] == -1:
+                nouveaux_objets_finaux.append(Oppose(base_objet))
             ### Si il y a un facteur négatif ###
-            elif sobjs[ko] < 0:
-                new_objs.append(Oppose(Produit([Reel(-sobjs[ko]), ko])))
+            elif objets_factorises[base_objet] < 0:
+                nouveaux_objets_finaux.append(Oppose(Produit([Reel(-objets_factorises[base_objet]), base_objet])))
             ### Si il y a un facteur positif ###
             else:
-                new_objs.append(Produit([Reel(sobjs[ko]), ko]))
+                nouveaux_objets_finaux.append(Produit([Reel(objets_factorises[base_objet]), base_objet]))
         
         # On va maintenant renvoyer le résultat
         # De même, il y a quelques petites simplifications possibles
 
         ### Si la somme est vide ###
-        if len(new_objs)==0:
+        if len(nouveaux_objets_finaux)==0:
             resultat: Reel = Reel(0)
             if DEBUG_SIMPLIFIE:
                 print(base_print, end="")
@@ -710,8 +717,8 @@ class Somme(Objet):
             memoisation_simplications[self.__repr__()] = resultat
             return resultat
         ### Si la somme ne contient qu'un seul élément ###
-        elif len(new_objs) == 1:
-            resultat = new_objs[0]
+        elif len(nouveaux_objets_finaux) == 1:
+            resultat = nouveaux_objets_finaux[0]
             if DEBUG_SIMPLIFIE:
                 print(base_print, end="")
                 color_print(f"Simplifie (Somme, 2) {self} => {resultat} ({type(resultat)})", color="cyan")
@@ -719,7 +726,7 @@ class Somme(Objet):
             return resultat
         ### Si la somme contient plusieurs éléments ###
         else:
-            resultat: Somme = Somme(new_objs)
+            resultat: Somme = Somme(nouveaux_objets_finaux)
             if DEBUG_SIMPLIFIE:
                 print(base_print, end="")
                 color_print(f"Simplifie (Somme, 3) {self} => {resultat} ({type(resultat)})", color="cyan")
