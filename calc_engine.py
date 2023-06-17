@@ -575,13 +575,13 @@ class Oppose(Objet):
                     color_print(f"Simplifie (Oppose, 3) {self} => {obj} ({type(resultat)})", color="cyan")
                 memoisation_simplications[self.__repr__()] = resultat
                 return resultat
-        elif type(obj) is Reel:
-            resultat: Reel = Reel(-obj.valeur)
-            if DEBUG_SIMPLIFIE:
-                print(base_print, end="")
-                color_print(f"Simplifie (Oppose, 4) {self} => {resultat} ({type(resultat)})", color="cyan")
-            memoisation_simplications[self.__repr__()] = resultat
-            return resultat
+        # elif type(obj) is Reel:
+        #     resultat: Reel = Reel(-obj.valeur)
+        #     if DEBUG_SIMPLIFIE:
+        #         print(base_print, end="")
+        #         color_print(f"Simplifie (Oppose, 4) {self} => {resultat} ({type(resultat)})", color="cyan")
+        #     memoisation_simplications[self.__repr__()] = resultat
+        #     return resultat
         else:
             resultat: Objet = Oppose(obj)
             if DEBUG_SIMPLIFIE:
@@ -629,66 +629,79 @@ class Somme(Objet):
         #
         if DEBUG_SIMPLIFIE: print(base_print, end="")
         if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
-        # print("\nDEBUG : SIMPLIFICATION DE SOMME\n")
-        # On rassemble les sommes entre elles
-        nobjs = []
-        for o in self.objs:
-            # print("L'élément ", o, " est dans la somme, et est de type ", type(o), "\n")
-            if type(o) is Somme:
-                # print("Sous-Somme détectée", o)
-                o = o.simplifie(base_print+"  ")
-                nobjs.extend(o.objs)
-            else:
-                nobjs.append(o)
-        #
-        self.objs = nobjs
-        # pré-tri
-        sum_rls = Reel(0)
-        sobjs = {}
-        #
-        for o in self.objs:
-            o = o.simplifie(base_print+"  ")
-            if type(o) is Reel:
-                sum_rls += o
-                continue
-            if type(o) is Produit:
-                if len(o.objs) == 2 and type(o.objs[0]) is Reel:
-                    if o in sobjs:
-                        sobjs[o] += o.objs[0].valeur
-                    else:
-                        sobjs[o] = o.objs[0].valeur
-                    continue
 
-            if type(o) is Oppose:
-                no = o.o.simplifie(base_print+"  ")
+        # On décompose les éléments de la somme, notamment pour mettre au même niveau les sous-sommes
+        nobjs = []
+        for objet in self.objs:
+            # print("L'élément ", o, " est dans la somme, et est de type ", type(o), "\n")
+            if type(objet) is Somme:
+                # print("Sous-Somme détectée", o)
+                objet = objet.simplifie(base_print+"  ")
+                nobjs.extend(objet.objs)
+            else:
+                nobjs.append(objet)
+        self.objs = nobjs
+        # On sépare les réels
+        somme_reels = Reel(0)
+        sobjs = {}
+        # On va essayer de factoriser les éléments de même base entre eux
+        for objet in self.objs:
+            objet = objet.simplifie(base_print+"  ")
+            # On traite les différents cas possibles
+            ### Cas où l'élément est un Réel ###
+            if type(objet) is Reel:
+                somme_reels += objet
+            elif type(objet) in [int, float]:
+                somme_reels += objet
+            ### Cas où l'élément est un produit du type (réel * obj) ###
+            elif type(objet) is Produit:
+                if len(objet.objs) == 2 and type(objet.objs[0]) is Reel:
+                    if objet in sobjs:
+                        sobjs[objet] += objet.objs[0].valeur
+                    else:
+                        sobjs[objet] = objet.objs[0].valeur
+            ### Cas où l'élément est un opposé ###
+            elif type(objet) is Oppose:
+                no = objet.o.simplifie(base_print+"  ")
                 if no in sobjs:
                     sobjs[no] -= 1
                 else:
                     sobjs[no] = -1
-                continue
-            #
-            if o in sobjs:
-                sobjs[o] += 1
+            ### Sinon, si il n'y a pas d'autres simplifications possibles ###
             else:
-                sobjs[o] = 1
-        #
+                if objet in sobjs:
+                    sobjs[objet] += 1
+                else:
+                    sobjs[objet] = 1
+        
+        # On va maintenant re-regrouper les éléments de la somme entre eux
         new_objs = []
         #
+        if somme_reels != 0:
+            new_objs.append(somme_reels)
+        #
         for ko in sobjs.keys():
+            # Il y a plusieurs petites simplifications possibles
+            ### Si il y a un facteur 0 ###
             if sobjs[ko] == 0:
                 continue
+            ### Si il y a un facteur 1 ###
             elif sobjs[ko] == 1:
                 new_objs.append(ko)
+            ### Si il y a un facteur -1 ###
             elif sobjs[ko] == -1:
                 new_objs.append(Oppose(ko))
+            ### Si il y a un facteur négatif ###
             elif sobjs[ko] < 0:
                 new_objs.append(Oppose(Produit([Reel(-sobjs[ko]), ko])))
+            ### Si il y a un facteur positif ###
             else:
                 new_objs.append(Produit([Reel(sobjs[ko]), ko]))
-        #
-        if sum_rls != 0:
-            new_objs.append(sum_rls)
-        #
+        
+        # On va maintenant renvoyer le résultat
+        # De même, il y a quelques petites simplifications possibles
+
+        ### Si la somme est vide ###
         if len(new_objs)==0:
             resultat: Reel = Reel(0)
             if DEBUG_SIMPLIFIE:
@@ -696,6 +709,7 @@ class Somme(Objet):
                 color_print(f"Simplifie (Somme, 1) {self} => {resultat} ({type(resultat)})", color="cyan")
             memoisation_simplications[self.__repr__()] = resultat
             return resultat
+        ### Si la somme ne contient qu'un seul élément ###
         elif len(new_objs) == 1:
             resultat = new_objs[0]
             if DEBUG_SIMPLIFIE:
@@ -703,6 +717,7 @@ class Somme(Objet):
                 color_print(f"Simplifie (Somme, 2) {self} => {resultat} ({type(resultat)})", color="cyan")
             memoisation_simplications[self.__repr__()] = resultat
             return resultat
+        ### Si la somme contient plusieurs éléments ###
         else:
             resultat: Somme = Somme(new_objs)
             if DEBUG_SIMPLIFIE:
