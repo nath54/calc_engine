@@ -488,6 +488,7 @@ class Oppose(Objet):
         return Oppose(self.o.derive(var))
 
     def simplifie(self, base_print: str = "") -> Objet:
+        print(base_print, "début simplifie ", self, type(self))
         obj = self.o.simplifie(base_print+"  ")
         if type(obj) is Oppose:
             while type(obj) is Oppose:
@@ -539,6 +540,7 @@ class Somme(Objet):
             return Reel(0)
     
     def simplifie(self, base_print: str = "") -> Objet:
+        print(base_print, "début simplifie ", self, type(self))
         # print("\nDEBUG : SIMPLIFICATION DE SOMME\n")
         # On rassemble les sommes entre elles
         nobjs = []
@@ -600,13 +602,13 @@ class Somme(Objet):
             new_objs.append(sum_rls)
         #
         if len(new_objs)==0:
-            print("Simplifie (Somme) ", self, " => ", Reel(0))
+            print(base_print, "Simplifie (Somme) ", self, " => ", Reel(0))
             return Reel(0)
         elif len(new_objs) == 1:
-            print("Simplifie (Somme) ", self, " => ", new_objs[0])
+            print(base_print, "Simplifie (Somme) ", self, " => ", new_objs[0])
             return new_objs[0]
         else:
-            print("Simplifie (Somme) ", self, " => ", Somme(new_objs))
+            print(base_print, "Simplifie (Somme) ", self, " => ", Somme(new_objs))
             return Somme(new_objs)
 
 class Soustraction(Objet):
@@ -634,6 +636,7 @@ class Soustraction(Objet):
             return Reel(0)
         
     def simplifie(self, base_print: str = "") -> 'Objet':
+        print(base_print, "début simplifie ", self, type(self))
         return Somme([self.o1, Oppose(self.o2)]).simplifie(base_print+"  ")
 
 
@@ -672,6 +675,7 @@ class Produit(Objet):
         return Produit([Produit(autres), Somme(derivees)])
     
     def simplifie(self, base_print: str = "") -> Objet:
+        print(base_print, "début simplifie ", self, type(self))
         return aux_simplify_produit(self, self.objs, base_print)
 
 class Inverse(Objet):
@@ -695,7 +699,8 @@ class Inverse(Objet):
         #
         return Frac(Oppose(self.obj.derive(var)), Puissance(self.obj, 2))
     
-    def simplifie(self, base_print: str = "") -> Objet:        
+    def simplifie(self, base_print: str = "") -> Objet:
+        print(base_print, "début simplifie ", self, type(self))    
         obj = self.obj.simplifie(base_print+"  ")
         opp = False
         if type(obj) is Oppose:
@@ -703,20 +708,20 @@ class Inverse(Objet):
             obj = obj.o
         if type(obj) is Inverse:
             if opp:
-                print("Simplifie (Inverse) ", self, " => ", Oppose(obj.obj))
+                print(base_print, "Simplifie (Inverse) ", self, " => ", Oppose(obj.obj))
                 return Oppose(obj.obj)
             else:
-                print("Simplifie (Inverse) ", self, " => ", obj.obj)
+                print(base_print, "Simplifie (Inverse) ", self, " => ", obj.obj)
                 return obj.obj
         if type(obj) is Frac:
             if opp:
-                print("Simplifie (Inverse) ", self, " => ", Oppose(obj.inverse()))
+                print(base_print, "Simplifie (Inverse) ", self, " => ", Oppose(obj.inverse()))
                 return Oppose(obj.inverse())
             else:
-                print("Simplifie (Inverse) ", self, " => ", obj.inverse())
+                print(base_print, "Simplifie (Inverse) ", self, " => ", obj.inverse())
                 return obj.inverse()
         #
-        print("Simplifie (Inverse) ", self, " => ", Inverse(obj))
+        print(base_print, "Simplifie (Inverse) ", self, " => ", Inverse(obj))
         return Inverse(obj)
 
 
@@ -748,6 +753,7 @@ class Frac(Objet):
         return Frac(self.denominateur, self.numerateur)
 
     def simplifie(self, base_print: str = "") -> Objet:
+        print(base_print, "début simplifie ", self, type(self))
         num = self.numerateur.simplifie(base_print+"  ")
         denom = self.denominateur.simplifie(base_print+"  ")
         return aux_simplify_frac(self, num, denom, base_print)
@@ -798,6 +804,7 @@ class Puissance(Objet):
                 return Produit([self.exposant, self.obj.derive(var), Puissance(self.obj, Soustraction(self.exposant, Reel(1)))])
 
     def simplifie(self, base_print: str = "") -> Objet:
+        print(base_print, "début simplifie ", self, type(self))
         obj = self.obj.simplifie(base_print+"  ")
         exposant = self.exposant.simplifie(base_print+"  ")
         #
@@ -871,6 +878,7 @@ class Polynome(Objet):
             return Polynome(new_coefs).simplifie()
 
     def simplifie(self, base_print: str = "") -> Objet:
+        print(base_print, "début simplifie ", self, type(self))
         new_coefs = {}
         for d in self.coefficients.keys():
             coef = self.coefficients[d].simplie()
