@@ -4,6 +4,11 @@ from typing import Optional
 from mpmath import mp
 from copy import deepcopy
 from math import *
+from lazyme.string import color_print
+
+""" Options de débogage """
+
+DEBUG_SIMPLIFIE: bool = True
 
 """ Preparing some variables for later """
 
@@ -18,7 +23,7 @@ NaN: 'Objet' = None
 Infinity: 'Objet' = None
 
 #TODO
-simplications: dict = {} # Un peu de mémoisation pour accélérer un peu, comme je répète pas mal de fois les fonctions `simplifie()`
+memoisation_simplications: dict = {} # Un peu de mémoisation pour accélérer un peu, comme je répète pas mal de fois les fonctions `simplifie()`
 
 """ Some configurations """
 
@@ -51,6 +56,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
     objets_decomposes: list[Objet] = []
 
     # Boucle de décomposition
+    if DEBUG_SIMPLIFIE: print(f"{base_print}Boucle de décomposition")
     for objet in objets_du_produit:
         # On simplifie d'abord l'objet
         objet_simplifie = objet.simplifie(base_print+"  ")
@@ -64,9 +70,12 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
 
         ### Cas où l'objet serait nul ###
         if objet_simplifie == 0:
-            # On va pouvoir simplifier très facilement, car toute multiplication avec 0 est égale à 0
-            print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(0))
-            return Reel(0)
+            # On va pouvoir simplifier très facilement, car toute multiplication avec 0 est égal à 0
+            resultat: Reel = Reel(0)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Prod/Frac, 1) {objet_initial} => {resultat} ({type(resultat)})", color="cyan")
+            return resultat
         ### Cas où l'objet est un produit ###
         elif type(objet_simplifie) is Produit:
             objets_decomposes += objet_simplifie.objs
@@ -108,9 +117,11 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
 
     # On va rassembler tous les réels ici pour pouvoir directement simplifier en un produit de réels
     produit_des_nombres_reels: Reel = Reel(signe)
+    if DEBUG_SIMPLIFIE: print(f"{base_print}produit des nombres réels initial : ", produit_des_nombres_reels)
     # On va rassembler ici tous les objets et regrouper les mêmes bases sous une puissance 
     objets_par_puissance: dict[Objet, Objet] = {}
     
+    if DEBUG_SIMPLIFIE: print(f"{base_print}Boucle de rassemblement des objets par bases")
     # On va donc parcourir tous les objets qui ont été décomposés précédemment
     for objet in objets_decomposes:
         # On va donc traiter les différents cas possibles, on a déjà une première hypothèse, qui serait qu'aucun objet ne serait nul
@@ -118,6 +129,7 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
         ### Cas où l'objet est un réel ###
         if type(objet) is Reel:
             produit_des_nombres_reels *= objet
+            if DEBUG_SIMPLIFIE: print(f"{base_print}Un réel a été détecté : ", objet, "nouveau produit des nombres réels : ", produit_des_nombres_reels)
     
         ### Cas où l'objet serait déjà une puissance ###
         elif type(objet) is Puissance:
@@ -144,14 +156,19 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
     nouveau_numerateurs = []
     nouveau_denominateur = []
 
+    if DEBUG_SIMPLIFIE: print(f"{base_print}On s'occupe des nombres réels")
     # Si on a une multiplication par 0, on simplifie
     if produit_des_nombres_reels == 0:
-        print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(0))
-        return Reel(0)
+        resultat: Reel = Reel(0)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"Simplifie (Prod/Frac, 2) {objet_initial} => {resultat} ({type(resultat)})", color="cyan")
+        return resultat
     # Sinon, si les réels ne se simplifient pas, on les ajoute au numérateur
     elif produit_des_nombres_reels!=1:
         nouveau_numerateurs.append(produit_des_nombres_reels)
     
+    if DEBUG_SIMPLIFIE: print(f"{base_print}On met les objets au numérateur et au dénominateur")
     # On va parcourir tous les objets que l'on avait trié par base égale
     for base_objet in objets_par_puissance.keys():
         # On simplifie l'expression de la somme des puissances
@@ -175,18 +192,27 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
     if len(nouveau_denominateur) == 0 or nouveau_denominateur == [1]:
         ## 1/1 = 1
         if len(nouveau_numerateurs) == 0:
-            print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Reel(1))
-            return Reel(1)
+            resultat: Reel = Reel(1)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Prod/Frac, 3) {objet_initial} => {resultat} ({type(resultat)})", color="cyan")
+            return resultat
         
         ## (a)/1 = a
         elif len(nouveau_numerateurs) == 1:
-            print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", nouveau_numerateurs[0])
-            return nouveau_numerateurs[0]
+            resultat: Objet = nouveau_numerateurs[0]
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Prod/Frac, 4) {objet_initial} => {resultat} ({type(resultat)})", color="cyan")
+            return resultat
         
         ## (expr)/1 = expr
         else:
-            print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Produit(nouveau_numerateurs))
-            return Produit(nouveau_numerateurs)
+            resultat: Produit = Produit(nouveau_numerateurs)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Prod/Frac, 5) {objet_initial} => {resultat} ({type(resultat)})", color="cyan")
+            return resultat
 
     ### Cas où le dénominateur n'est pas vide ###
     else:
@@ -195,20 +221,39 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
 
         ## Si le numérateur est égal à 1, on renvoie juste l'inverse du dénominateur
         if len(nouveau_numerateurs) == 0 or nouveau_numerateurs == [1]:
-            print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Inverse(Produit(nouveau_denominateur)))
-            return Inverse(Produit(nouveau_denominateur))
-        
-        ## Sinon, on prépare le numérateur final, et on renvoie la fraction (expression numérateur)/(expression dénominateur)
+            resultat: Inverse = Inverse(denominateur_final)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Prod/Frac, 6) {objet_initial} => {resultat} ({type(resultat)})", color="cyan")
+            return resultat
+
+        ## Sinon, on prépare le numérateur final
         numerateur_final: Objet = nouveau_numerateurs[0] if len(nouveau_numerateurs) == 1 else Produit(nouveau_numerateurs).simplifie(base_print+"  ")
-        print(base_print, "Simplifie (Prod/Frac) ", objet_initial, " => ", Frac(numerateur_final, denominateur_final))
-        return Frac(numerateur_final, denominateur_final)
-    
+
+        
+        ## Si le numérateur et le dénominateur sont tous les deux réels
+        if type(numerateur_final) is Reel and type(denominateur_final) is Reel:
+            ## Si ils se simplifient bien
+            if numerateur_final.valeur % denominateur_final.valeur == 0:
+                resultat: Frac = Reel(numerateur_final.valeur/denominateur_final.valeur)
+                if DEBUG_SIMPLIFIE:
+                    print(base_print, end="")
+                    color_print(f"Simplifie (Prod/Frac, 7) {objet_initial} => {resultat} ({type(resultat)})", color="cyan")
+                return resultat
+
+        ## et on renvoie la fraction (expression numérateur)/(expression dénominateur)
+        resultat: Frac = Frac(numerateur_final, denominateur_final)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"Simplifie (Prod/Frac, 8) {objet_initial} => {resultat} ({type(resultat)})", color="cyan")
+        return resultat
+
 def aux_simplify_produit(prod: 'Produit', p_objs: list['Objet'], base_print: str = "") -> 'Objet':
     return aux_simplify_produit_et_frac(prod, p_objs, base_print)
-    
+
 def aux_simplify_frac(frac: 'Frac', f_num: 'Objet', f_denom: 'Objet', base_print) -> 'Objet':
     return aux_simplify_produit_et_frac(frac, [f_num, Inverse(f_denom).simplifie(base_print+"  ")], base_print)
-    
+
 
 """ Elements atomiques """
 
@@ -254,7 +299,9 @@ class Objet():
         return Reel(0)
     
     def simplifie(self, base_print: str = "") -> 'Objet':
-        print(base_print, "Simplifie (Objet) ", self, " => ", self)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"Simplifie (Objet) {self} => {self} ({type(self)})", color="blue")
         return self
 
 
@@ -366,8 +413,14 @@ class Reel(Objet):
         return Reel(0)
     
     def simplifie(self, base_print: str = "") -> Objet:
-        print(base_print, "Simplifie (Réel) ", self, " => ", self)
-        return self
+        resultat: Reel = self
+        if type(resultat.valeur) is float and resultat.valeur == int(resultat.valeur):
+            resultat.valeur = int(resultat.valeur)
+        #
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"Simplifie (Réel) {self} => {resultat} ({type(resultat)})", color="blue")
+        return resultat
 
 
 class Variable(Objet):
@@ -401,7 +454,9 @@ class Variable(Objet):
             return Reel(0)
     
     def simplifie(self, base_print: str = "") -> Objet:
-        print(base_print, "Simplifie (Variable) ", self, " => ", self)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"Simplifie (Variable) {self} => {self} ({type(self)})", color="blue")
         return self
 
 
@@ -418,7 +473,9 @@ class Fonction(Objet):
         return Derivee(nom=None, fct=self, var=var)
     
     def simplifie(self, base_print: str = "") -> Objet:
-        print(base_print, "Simplifie (Fonction) ", self, " => ", self)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"Simplifie (Fonction) {self} => {self} ({type(self)})", color="blue")
         return self
     
 
@@ -488,24 +545,50 @@ class Oppose(Objet):
         return Oppose(self.o.derive(var))
 
     def simplifie(self, base_print: str = "") -> Objet:
-        print(base_print, "début simplifie ", self, type(self))
+        # Mémoisation
+        if self.__repr__() in memoisation_simplications:
+            return memoisation_simplications[self.__repr__()]
+        #
+        if DEBUG_SIMPLIFIE: print(base_print, end="")
+        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
         obj = self.o.simplifie(base_print+"  ")
         if type(obj) is Oppose:
             while type(obj) is Oppose:
                 obj = obj.o
-            print(base_print, "Simplifie (Oppose) ", self, " => ", obj)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Oppose, 1) {self} => {obj} ({type(obj)})", color="cyan")
+            memoisation_simplications[self.__repr__()] = obj
             return obj
         elif type(obj) is Produit:
             if type(obj.objs[0]) is Reel and obj.objs[0] < 0:
-                return Produit([-1]+obj.objs).simplifie(base_print+"  ")
+                resultat = Produit([-1]+obj.objs).simplifie(base_print+"  ")
+                if DEBUG_SIMPLIFIE:
+                    print(base_print, end="")
+                    color_print(f"Simplifie (Oppose, 2) {self} => {obj} ({type(resultat)})", color="cyan")
+                memoisation_simplications[self.__repr__()] = resultat
+                return resultat
             else:
-                return Oppose(obj)
+                resultat = Oppose(obj)
+                if DEBUG_SIMPLIFIE:
+                    print(base_print, end="")
+                    color_print(f"Simplifie (Oppose, 3) {self} => {obj} ({type(resultat)})", color="cyan")
+                memoisation_simplications[self.__repr__()] = resultat
+                return resultat
         elif type(obj) is Reel:
-            print(base_print, "Simplifie (Oppose) ", self, " => ", Reel(-obj.valeur))
-            return Reel(-obj.valeur)
+            resultat: Reel = Reel(-obj.valeur)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Oppose, 4) {self} => {resultat} ({type(resultat)})", color="cyan")
+            memoisation_simplications[self.__repr__()] = resultat
+            return resultat
         else:
-            print(base_print, "Simplifie (Oppose) ", self, " => ", Oppose(obj))
-            return Oppose(obj)
+            resultat: Objet = Oppose(obj)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Oppose, 5) {self} => {resultat} ({type(resultat)})", color="cyan")
+            memoisation_simplications[self.__repr__()] = resultat
+            return resultat
         
 
 class Somme(Objet):
@@ -540,7 +623,12 @@ class Somme(Objet):
             return Reel(0)
     
     def simplifie(self, base_print: str = "") -> Objet:
-        print(base_print, "début simplifie ", self, type(self))
+        # Mémoisation
+        if self.__repr__() in memoisation_simplications:
+            return memoisation_simplications[self.__repr__()]
+        #
+        if DEBUG_SIMPLIFIE: print(base_print, end="")
+        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
         # print("\nDEBUG : SIMPLIFICATION DE SOMME\n")
         # On rassemble les sommes entre elles
         nobjs = []
@@ -602,14 +690,26 @@ class Somme(Objet):
             new_objs.append(sum_rls)
         #
         if len(new_objs)==0:
-            print(base_print, "Simplifie (Somme) ", self, " => ", Reel(0))
-            return Reel(0)
+            resultat: Reel = Reel(0)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Somme, 1) {self} => {resultat} ({type(resultat)})", color="cyan")
+            memoisation_simplications[self.__repr__()] = resultat
+            return resultat
         elif len(new_objs) == 1:
-            print(base_print, "Simplifie (Somme) ", self, " => ", new_objs[0])
-            return new_objs[0]
+            resultat = new_objs[0]
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Somme, 2) {self} => {resultat} ({type(resultat)})", color="cyan")
+            memoisation_simplications[self.__repr__()] = resultat
+            return resultat
         else:
-            print(base_print, "Simplifie (Somme) ", self, " => ", Somme(new_objs))
-            return Somme(new_objs)
+            resultat: Somme = Somme(new_objs)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Somme, 3) {self} => {resultat} ({type(resultat)})", color="cyan")
+            memoisation_simplications[self.__repr__()] = resultat
+            return resultat
 
 class Soustraction(Objet):
     def __init__(self, o1: Objet, o2: Objet):
@@ -636,8 +736,18 @@ class Soustraction(Objet):
             return Reel(0)
         
     def simplifie(self, base_print: str = "") -> 'Objet':
-        print(base_print, "début simplifie ", self, type(self))
-        return Somme([self.o1, Oppose(self.o2)]).simplifie(base_print+"  ")
+        # Mémoisation
+        if self.__repr__() in memoisation_simplications:
+            return memoisation_simplications[self.__repr__()]
+        #
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
+        
+        resultat = Somme([self.o1, Oppose(self.o2)]).simplifie(base_print+"  ")
+        
+        memoisation_simplications[self.__repr__()] = resultat
+        return resultat
 
 
 class Produit(Objet):
@@ -675,8 +785,15 @@ class Produit(Objet):
         return Produit([Produit(autres), Somme(derivees)])
     
     def simplifie(self, base_print: str = "") -> Objet:
-        print(base_print, "début simplifie ", self, type(self))
-        return aux_simplify_produit(self, self.objs, base_print)
+        # Mémoisation
+        if self.__repr__() in memoisation_simplications:
+            return memoisation_simplications[self.__repr__()]
+        #
+        if DEBUG_SIMPLIFIE: print(base_print, end="")
+        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
+        resultat = aux_simplify_produit(self, self.objs, base_print)
+        memoisation_simplications[self.__repr__()] = resultat
+        return resultat
 
 class Inverse(Objet):
     def __init__(self, obj: Objet):
@@ -688,7 +805,7 @@ class Inverse(Objet):
             self.obj = Reel(self.obj)
         
     def __repr__(self):
-        return "1/"+self.obj.__repr__()
+        return "("+"1/"+self.obj.__repr__()+")"
 
     def depends_of_var(self, var: Variable) -> bool:
         return self.obj.depends_of_var(var)
@@ -700,7 +817,12 @@ class Inverse(Objet):
         return Frac(Oppose(self.obj.derive(var)), Puissance(self.obj, 2))
     
     def simplifie(self, base_print: str = "") -> Objet:
-        print(base_print, "début simplifie ", self, type(self))    
+        # Mémoisation
+        if self.__repr__() in memoisation_simplications:
+            return memoisation_simplications[self.__repr__()]
+        #
+        if DEBUG_SIMPLIFIE: print(base_print, end="")
+        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)    
         obj = self.obj.simplifie(base_print+"  ")
         opp = False
         if type(obj) is Oppose:
@@ -708,21 +830,41 @@ class Inverse(Objet):
             obj = obj.o
         if type(obj) is Inverse:
             if opp:
-                print(base_print, "Simplifie (Inverse) ", self, " => ", Oppose(obj.obj))
-                return Oppose(obj.obj)
+                resultat: Oppose = Oppose(obj.obj)
+                if DEBUG_SIMPLIFIE:
+                    print(base_print, end="")
+                    color_print(f"Simplifie (Inverse, 1) {self} => {resultat} ({type(resultat)})", color="cyan")
+                memoisation_simplications[self.__repr__()] = resultat
+                return resultat
             else:
-                print(base_print, "Simplifie (Inverse) ", self, " => ", obj.obj)
-                return obj.obj
+                resultat: Objet = obj.obj
+                if DEBUG_SIMPLIFIE:
+                    print(base_print, end="")
+                    color_print(f"Simplifie (Inverse, 2) {self} => {resultat} ({type(resultat)})", color="cyan")
+                memoisation_simplications[self.__repr__()] = resultat
+                return resultat
         if type(obj) is Frac:
             if opp:
-                print(base_print, "Simplifie (Inverse) ", self, " => ", Oppose(obj.inverse()))
-                return Oppose(obj.inverse())
+                resultat: Oppose = Oppose(obj.inverse())
+                if DEBUG_SIMPLIFIE:
+                    print(base_print, end="")
+                    color_print(f"Simplifie (Inverse, 3) {self} => {resultat} ({type(resultat)})", color="cyan")
+                memoisation_simplications[self.__repr__()] = resultat
+                return resultat
             else:
-                print(base_print, "Simplifie (Inverse) ", self, " => ", obj.inverse())
+                resultat: Objet = obj.inverse()
+                if DEBUG_SIMPLIFIE:
+                    print(base_print, end="")
+                    color_print(f"Simplifie (Inverse, 4) {self} => {resultat} ({type(resultat)})", color="cyan")
+                memoisation_simplications[self.__repr__()] = resultat
                 return obj.inverse()
         #
-        print(base_print, "Simplifie (Inverse) ", self, " => ", Inverse(obj))
-        return Inverse(obj)
+        resultat: Inverse = Inverse(obj)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"Simplifie (Inverse, 5) {self} => {resultat} ({type(resultat)})", color="cyan")
+        memoisation_simplications[self.__repr__()] = resultat
+        return resultat
 
 
 class Frac(Objet):
@@ -738,7 +880,7 @@ class Frac(Objet):
             self.denominateur = Reel(self.denominateur)
     
     def __repr__(self) -> str:
-        return self.numerateur.__repr__()+"/"+self.denominateur.__repr__()
+        return "("+self.numerateur.__repr__()+"/"+self.denominateur.__repr__()+")"
 
     def depends_of_var(self, var: Variable) -> bool:
         return self.numerateur.depends_of_var(var) or self.denominateur.depends_of_var(var)
@@ -753,10 +895,13 @@ class Frac(Objet):
         return Frac(self.denominateur, self.numerateur)
 
     def simplifie(self, base_print: str = "") -> Objet:
-        print(base_print, "début simplifie ", self, type(self))
+        if DEBUG_SIMPLIFIE: print(base_print, end="")
+        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
         num = self.numerateur.simplifie(base_print+"  ")
         denom = self.denominateur.simplifie(base_print+"  ")
-        return aux_simplify_frac(self, num, denom, base_print)
+        resultat = aux_simplify_frac(self, num, denom, base_print)
+        memoisation_simplications[self.__repr__()] = resultat
+        return resultat
 
 class Ln(Fonction):
     def __init__(self, f: Objet):
@@ -804,29 +949,53 @@ class Puissance(Objet):
                 return Produit([self.exposant, self.obj.derive(var), Puissance(self.obj, Soustraction(self.exposant, Reel(1)))])
 
     def simplifie(self, base_print: str = "") -> Objet:
-        print(base_print, "début simplifie ", self, type(self))
+        # Mémoisation
+        if self.__repr__() in memoisation_simplications:
+            return memoisation_simplications[self.__repr__()]
+        #
+        if DEBUG_SIMPLIFIE: print(base_print, end="")
+        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
         obj = self.obj.simplifie(base_print+"  ")
         exposant = self.exposant.simplifie(base_print+"  ")
         #
         if obj == 1:
-            print("Simplifie (Puissance) ", self, " => ", Reel(1))
-            return Reel(1)
+            resultat: Reel = Reel(1)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Puissance, 1) {self} => {resultat} ({type(resultat)})", color="cyan")
+            memoisation_simplications[self.__repr__()] = resultat
+            return resultat
         
         if exposant == 0:
-            print("Simplifie (Puissance) ", self, " => ", Reel(1))
-            return Reel(1)
+            resultat: Reel = Reel(1)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Puissance, 2) {self} => {resultat} ({type(resultat)})", color="cyan")
+            memoisation_simplications[self.__repr__()] = resultat
+            return resultat
         
         if exposant == 1:
-            print("Simplifie (Puissance) ", self, " => ", obj)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Puissance, 3) {self} => {obj} ({type(obj)})", color="cyan")
+            memoisation_simplications[self.__repr__()] = obj
             return obj
         
         if exposant == -1:
-            print("Simplifie (Puissance) ", self, " => ", Inverse(obj))
-            return Inverse(obj)
+            resultat = Inverse(obj)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Puissance, 4) {self} => {resultat} ({type(resultat)})", color="cyan")
+            memoisation_simplications[self.__repr__()] = resultat
+            return resultat
         
         #
-        print("Simplifie (Puissance) ", self, " => ", Puissance(obj, exposant))
-        return Puissance(obj, exposant)
+        resultat = Puissance(obj, exposant)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"Simplifie (Puissance, 5) {self} => {resultat} ({type(resultat)})", color="cyan")
+        memoisation_simplications[self.__repr__()] = resultat
+        return resultat
 
 # Polynôme 
 class Polynome(Objet):
@@ -878,7 +1047,13 @@ class Polynome(Objet):
             return Polynome(new_coefs).simplifie()
 
     def simplifie(self, base_print: str = "") -> Objet:
-        print(base_print, "début simplifie ", self, type(self))
+        # Mémoisation
+        if self.__repr__() in memoisation_simplications:
+            return memoisation_simplications[self.__repr__()]
+        #
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
         new_coefs = {}
         for d in self.coefficients.keys():
             coef = self.coefficients[d].simplie()
@@ -886,14 +1061,23 @@ class Polynome(Objet):
                 new_coefs[d] = coef
         #
         if len(new_coefs) == 0:
-            print("Simplifie (Polynome) ", self, " => ", Reel(0))
-            return Reel(0)
+            resultat: Reel = Reel(0)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Polynome, 1) {self} => {resultat} ({type(resultat)})", color="cyan")
+            return resultat
         elif len(new_coefs) == 1 and list(new_coefs.keys())[0] == 0:
-            print("Simplifie (Polynome) ", self, " => ", list(new_coefs.values())[0])
-            return list(new_coefs.values())[0]
+            resultat = list(new_coefs.values())[0]
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Polynome, 2) {self} => {resultat} ({type(resultat)})", color="cyan")
+            return resultat
         else:
-            print("Simplifie (Polynome) ", self, " => ", Polynome(new_coefs))
-            return Polynome(new_coefs)
+            resultat: Polynome = Polynome(new_coefs)
+            if DEBUG_SIMPLIFIE:
+                print(base_print, end="")
+                color_print(f"Simplifie (Polynome, 3) {self} => {resultat} ({type(resultat)})", color="cyan")
+            return resultat
     
     def degre(self):
         return max(list(self.coefficients.keys()))
@@ -1120,6 +1304,13 @@ class Matrice(Objet):
 
             # On a fini de traiter la colonne current_col !
         #
+
+        for l in range(self.nb_lignes):
+            for c in range(self.nb_colonnes):
+                coefs[l][c] = coefs[l][c].simplifie()
+
+        #
+        
         return (coef_det, Matrice(self.nb_lignes, self.nb_colonnes, coefs))
         
     def determinant(self) -> Objet:
@@ -1128,7 +1319,7 @@ class Matrice(Objet):
         if self.nb_lignes == 1:
             return self.coefs[0][0].simplifie()
         elif self.nb_lignes == 2:
-            return Somme( [Produit([self.coefs[0][0], self.coefs[1][1]]).simplifie(), Oppose(Produit([self.coefs[0][1], self.coefs[1][0]])).simplifie() ]).simplifie()
+            return Somme( [Produit([self.coefs[0][0], self.coefs[1][1]]), Oppose(Produit([self.coefs[0][1], self.coefs[1][0]]))]).simplifie()
         else:
             t: tuple[Objet, 'Matrice'] = self.pivot_de_gauss_determinant()
             coef_det: Objet = t[0]
