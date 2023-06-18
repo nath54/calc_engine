@@ -8,7 +8,7 @@ from lazyme.string import color_print
 
 """ Options de débogage """
 
-DEBUG_SIMPLIFIE: bool = True
+DEBUG_SIMPLIFIE: bool = False
 
 """ Preparing some variables for later """
 
@@ -642,34 +642,33 @@ class Somme(Objet):
         # On décompose les éléments de la somme, notamment pour mettre au même niveau les sous-sommes
         objets_decomposes = []
         for objet in self.objs:
+            objet_simplifie = objet.simplifie(base_print+"  ")
             # print("L'élément ", o, " est dans la somme, et est de type ", type(o), "\n")
-            if type(objet) is Somme:
+            if type(objet_simplifie) is Somme:
                 # print("Sous-Somme détectée", o)
-                objet_simplifie = objet.simplifie(base_print+"  ")
                 objets_decomposes.extend(objet_simplifie.objs)
             else:
-                objets_decomposes.append(objet)
+                objets_decomposes.append(objet_simplifie)
 
-        print(base_print, "Objets décomposés : ", objets_decomposes)
+        if DEBUG_SIMPLIFIE: print(base_print, "Objets décomposés : ", objets_decomposes)
         # On sépare les réels
         somme_reels = Reel(0)
         objets_factorises = {}
         # On va essayer de factoriser les éléments de même base entre eux
         for objet in self.objs:
-            print(base_print, "test factorisation objet ", objet, "...")
+            if DEBUG_SIMPLIFIE: print(base_print, "test factorisation objet ", objet, "...")
             objet_simplifie = objet.simplifie(base_print+"  ")
             # On traite les différents cas possibles
             ### Cas où l'élément est un Réel ###
             if type(objet_simplifie) is Reel or type(objet_simplifie) in [int, float]:
                 somme_reels += objet_simplifie
             ### Cas où l'élément est un produit du type (réel * obj) ###
-            elif type(objet_simplifie) is Produit:
-                if len(objet_simplifie.objs) == 2 and type(objet_simplifie.objs[0]) is Reel:
-                    base_objet = objet_simplifie.objs[1]
-                    if base_objet in objets_factorises:
-                        objets_factorises[base_objet] += objet_simplifie.objs[0].valeur
-                    else:
-                        objets_factorises[base_objet] = objet_simplifie.objs[0].valeur
+            elif type(objet_simplifie) is Produit and len(objet_simplifie.objs) == 2 and type(objet_simplifie.objs[0]) is Reel:
+                base_objet = objet_simplifie.objs[1]
+                if base_objet in objets_factorises:
+                    objets_factorises[base_objet] += objet_simplifie.objs[0].valeur
+                else:
+                    objets_factorises[base_objet] = objet_simplifie.objs[0].valeur
             ### Cas où l'élément est un opposé ###
             elif type(objet_simplifie) is Oppose:
                 objet_oppose = objet_simplifie.o.simplifie(base_print+"  ")
@@ -684,7 +683,7 @@ class Somme(Objet):
                 else:
                     objets_factorises[objet_simplifie] = 1
         
-        print(base_print, "Objets factorisés : ", objets_factorises)
+        if DEBUG_SIMPLIFIE: print(base_print, "Objets factorisés : ", objets_factorises)
         # On va maintenant re-regrouper les éléments de la somme entre eux
         nouveaux_objets_finaux = []
         #
@@ -710,7 +709,7 @@ class Somme(Objet):
                 nouveaux_objets_finaux.append(Produit([Reel(objets_factorises[base_objet]), base_objet]))
         
         
-        print(base_print, "Nouveaux objets finaux : ", nouveaux_objets_finaux)
+        if DEBUG_SIMPLIFIE: print(base_print, "Nouveaux objets finaux : ", nouveaux_objets_finaux)
 
         # On va maintenant renvoyer le résultat
         # De même, il y a quelques petites simplifications possibles
@@ -1281,7 +1280,8 @@ class Matrice(Objet):
         for j in range(len(coefs[0])):
             coefs[i][j] = Produit([coefs[i][j], o]).simplifie()
         #
-        return o
+        # return o
+        return Reel(1)
     
     def aux_mult_col(self, coefs: list[list[Objet]], j: int, o: Objet):
         assert o != 0
@@ -1289,7 +1289,8 @@ class Matrice(Objet):
         for i in range(len(coefs)):
             coefs[i][j] = Produit([coefs[i][j], o]).simplifie()
         #
-        return o
+        # return o
+        return Reel(1)
     
     def aux_transvection_ligne(self, coefs: list[list[Objet]], i: int, j: int, o: Objet):
         for k in range(len(coefs[0])):
@@ -1303,6 +1304,53 @@ class Matrice(Objet):
         #
         return Reel(1)
 
+    # def pivot_de_gauss_determinant(self) -> tuple[Objet, 'Matrice']:
+    #     # Le coefficient qui change lorsque l'on effectue les opérations élémentaires d'échanges de lignes/colonnes etc... lors de l'application de l'algotithme du pivot de Gauss
+    #     coef_det: Objet = Reel(1)
+    #     #
+    #     coefs: list[list[Objet]] = deepcopy(self.coefs)
+    #     #
+    #     for current_col in range(0, self.nb_colonnes):
+    #         # current_col désigne la colonne actuelle où l'on applique le pivot
+
+    #         # On cherche le premier coefficient non nul de la colonne
+    #         ligne_pivot: int = -1
+    #         for i in range(0, self.nb_lignes):
+    #             if coefs[i][current_col] != 0:
+    #                 ligne_pivot = i
+    #                 break
+            
+    #         if ligne_pivot == -1:
+    #             continue
+
+    #         # le coefficient coef[ligne_pivot][current_col] est le pivot choisit
+
+    #         # On le met à la bonne ligne si besoin
+    #         if ligne_pivot != current_col:
+    #             chg = self.aux_ech_lignes(coefs, ligne_pivot, current_col)
+    #             coef_det = Produit([coef_det, chg]).simplifie()
+
+    #         pivot: Objet = coefs[current_col][current_col]
+
+    #         # On va annuler les coefficients des lignes d'en dessous
+    #         for i in range(current_col+1, self.nb_lignes):
+    #             self.aux_transvection_ligne(coefs, i, current_col, Oppose(Frac(coefs[i][current_col], pivot)).simplifie())
+            
+    #         # On va normaliser le pivot
+    #         chg = self.aux_mult_ligne(coefs, current_col, Frac(1, pivot).simplifie())
+    #         coef_det = Produit([coef_det, chg]).simplifie()
+
+    #         # On a fini de traiter la colonne current_col !
+    #     #
+
+    #     for l in range(self.nb_lignes):
+    #         for c in range(self.nb_colonnes):
+    #             coefs[l][c] = coefs[l][c].simplifie()
+
+    #     #
+        
+    #     return (coef_det, Matrice(self.nb_lignes, self.nb_colonnes, coefs))
+    
     def pivot_de_gauss_determinant(self) -> tuple[Objet, 'Matrice']:
         # Le coefficient qui change lorsque l'on effectue les opérations élémentaires d'échanges de lignes/colonnes etc... lors de l'application de l'algotithme du pivot de Gauss
         coef_det: Objet = Reel(1)
@@ -1310,41 +1358,40 @@ class Matrice(Objet):
         coefs: list[list[Objet]] = deepcopy(self.coefs)
         #
         for current_col in range(0, self.nb_colonnes):
-            # current_col désigne la colonne actuelle où l'on applique le pivot
 
-            # On cherche le premier coefficient non nul de la colonne
-            ligne_pivot: int = 0
-            for i in range(0, self.nb_lignes):
+            # Recherche du pivot
+            ligne_pivot = None
+            pivot = None
+            for i in range(current_col, self.nb_lignes):
                 if coefs[i][current_col] != 0:
+                    pivot = coefs[i][current_col]
                     ligne_pivot = i
                     break
             
-            # le coefficient coef[ligne_pivot][current_col] est le pivot choisit
+            if pivot is None:
+                continue
 
-            # On le met à la bonne ligne si besoin
-            chg = self.aux_ech_lignes(coefs, ligne_pivot, current_col)
-            coef_det = Produit([coef_det, chg]).simplifie()
+            # Echange des lignes si nécessaire
+            if ligne_pivot != current_col:
+                chg = self.aux_ech_lignes(coefs, ligne_pivot, current_col)
+                coef_det = Produit([coef_det, chg]).simplifie()
 
-            pivot: Objet = coefs[current_col][current_col]
-
-            # On va annuler les coefficients des lignes d'en dessous
-            for i in range(current_col, self.nb_lignes):
+            # Annulation des coefficients en dessous du pivot
+            for i in range(current_col+1, self.nb_lignes):
                 self.aux_transvection_ligne(coefs, i, current_col, Oppose(Frac(coefs[i][current_col], pivot)).simplifie())
-            
-            # On va normaliser le pivot
-            chg = self.aux_mult_ligne(coefs, current_col, Frac(1, pivot).simplifie())
-            coef_det = Produit([coef_det, chg]).simplifie()
 
-            # On a fini de traiter la colonne current_col !
-        #
+        # # Mise à jour du determinant
+        # for i in range(self.nb_lignes):
+        #     coef_det = Produit([coef_det, coefs[i][i]]).simplifie()
 
+        # Simplification de chacun des coefficients
+        
         for l in range(self.nb_lignes):
             for c in range(self.nb_colonnes):
                 coefs[l][c] = coefs[l][c].simplifie()
 
-        #
-        
         return (coef_det, Matrice(self.nb_lignes, self.nb_colonnes, coefs))
+
         
     def determinant(self) -> Objet:
         assert self.nb_lignes == self.nb_colonnes, "Le déterminant d'une matrice non carrée n'existe pas !"
