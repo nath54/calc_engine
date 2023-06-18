@@ -140,14 +140,14 @@ def aux_simplify_produit_et_frac(objet_initial: 'Objet', objets_du_produit: list
                 objets_par_puissance[objet.obj].append(objet.exposant)
             else:
                 objets_par_puissance[objet.obj] = [objet.exposant]
-        
+
         ### Cas où l'objet est un inverse ###
         elif type(objet) is Inverse:
             if objet.obj in objets_par_puissance:
                 objets_par_puissance[objet.obj].append(Reel(-1))
             else:
                 objets_par_puissance[objet.obj] = [Reel(-1)]
-    
+
         ### Cas où l'objet est un objet général, sans plus d'informations que cela ###
         else:
             if objet in objets_par_puissance:
@@ -556,8 +556,9 @@ class Oppose(Objet):
         if self.__repr__() in memoisation_simplications:
             return memoisation_simplications[self.__repr__()]
         #
-        if DEBUG_SIMPLIFIE: print(base_print, end="")
-        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
         obj = self.o.simplifie(base_print+"  ")
         if type(obj) is Oppose:
             while type(obj) is Oppose:
@@ -634,8 +635,9 @@ class Somme(Objet):
         if self.__repr__() in memoisation_simplications:
             return memoisation_simplications[self.__repr__()]
         #
-        if DEBUG_SIMPLIFIE: print(base_print, end="")
-        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
 
         # On décompose les éléments de la somme, notamment pour mettre au même niveau les sous-sommes
         objets_decomposes = []
@@ -647,26 +649,27 @@ class Somme(Objet):
                 objets_decomposes.extend(objet_simplifie.objs)
             else:
                 objets_decomposes.append(objet)
+
         print(base_print, "Objets décomposés : ", objets_decomposes)
         # On sépare les réels
         somme_reels = Reel(0)
         objets_factorises = {}
         # On va essayer de factoriser les éléments de même base entre eux
         for objet in self.objs:
+            print(base_print, "test factorisation objet ", objet, "...")
             objet_simplifie = objet.simplifie(base_print+"  ")
             # On traite les différents cas possibles
             ### Cas où l'élément est un Réel ###
-            if type(objet_simplifie) is Reel:
-                somme_reels += objet_simplifie
-            elif type(objet_simplifie) in [int, float]:
+            if type(objet_simplifie) is Reel or type(objet_simplifie) in [int, float]:
                 somme_reels += objet_simplifie
             ### Cas où l'élément est un produit du type (réel * obj) ###
             elif type(objet_simplifie) is Produit:
                 if len(objet_simplifie.objs) == 2 and type(objet_simplifie.objs[0]) is Reel:
-                    if objet_simplifie in objets_factorises:
-                        objets_factorises[objet_simplifie] += objet_simplifie.objs[0].valeur
+                    base_objet = objet_simplifie.objs[1]
+                    if base_objet in objets_factorises:
+                        objets_factorises[base_objet] += objet_simplifie.objs[0].valeur
                     else:
-                        objets_factorises[objet_simplifie] = objet_simplifie.objs[0].valeur
+                        objets_factorises[base_objet] = objet_simplifie.objs[0].valeur
             ### Cas où l'élément est un opposé ###
             elif type(objet_simplifie) is Oppose:
                 objet_oppose = objet_simplifie.o.simplifie(base_print+"  ")
@@ -815,8 +818,9 @@ class Produit(Objet):
         if self.__repr__() in memoisation_simplications:
             return memoisation_simplications[self.__repr__()]
         #
-        if DEBUG_SIMPLIFIE: print(base_print, end="")
-        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
         resultat = aux_simplify_produit(self, self.objs, base_print)
         memoisation_simplications[self.__repr__()] = resultat
         return resultat
@@ -847,8 +851,9 @@ class Inverse(Objet):
         if self.__repr__() in memoisation_simplications:
             return memoisation_simplications[self.__repr__()]
         #
-        if DEBUG_SIMPLIFIE: print(base_print, end="")
-        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)    
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)    
         obj = self.obj.simplifie(base_print+"  ")
         opp = False
         if type(obj) is Oppose:
@@ -921,8 +926,9 @@ class Frac(Objet):
         return Frac(self.denominateur, self.numerateur)
 
     def simplifie(self, base_print: str = "") -> Objet:
-        if DEBUG_SIMPLIFIE: print(base_print, end="")
-        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
         num = self.numerateur.simplifie(base_print+"  ")
         denom = self.denominateur.simplifie(base_print+"  ")
         resultat = aux_simplify_frac(self, num, denom, base_print)
@@ -979,8 +985,9 @@ class Puissance(Objet):
         if self.__repr__() in memoisation_simplications:
             return memoisation_simplications[self.__repr__()]
         #
-        if DEBUG_SIMPLIFIE: print(base_print, end="")
-        if DEBUG_SIMPLIFIE: color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
+        if DEBUG_SIMPLIFIE:
+            print(base_print, end="")
+            color_print(f"début simplifie {self} {type(self)}", color="red", underline=True)
         obj = self.obj.simplifie(base_print+"  ")
         exposant = self.exposant.simplifie(base_print+"  ")
         #
