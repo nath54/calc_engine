@@ -647,7 +647,7 @@ class Somme(Objet):
                 objets_decomposes.extend(objet_simplifie.objs)
             else:
                 objets_decomposes.append(objet)
-        #
+        print(base_print, "Objets décomposés : ", objets_decomposes)
         # On sépare les réels
         somme_reels = Reel(0)
         objets_factorises = {}
@@ -681,6 +681,7 @@ class Somme(Objet):
                 else:
                     objets_factorises[objet_simplifie] = 1
         
+        print(base_print, "Objets factorisés : ", objets_factorises)
         # On va maintenant re-regrouper les éléments de la somme entre eux
         nouveaux_objets_finaux = []
         #
@@ -705,6 +706,9 @@ class Somme(Objet):
             else:
                 nouveaux_objets_finaux.append(Produit([Reel(objets_factorises[base_objet]), base_objet]))
         
+        
+        print(base_print, "Nouveaux objets finaux : ", nouveaux_objets_finaux)
+
         # On va maintenant renvoyer le résultat
         # De même, il y a quelques petites simplifications possibles
 
